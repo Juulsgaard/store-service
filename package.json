@@ -1,0 +1,30 @@
+{
+  "name": "@consensus-labs/store-service",
+  "version": "1.0.0",
+  "description": "A state management system for Javascript",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": "git@gitlab.com:consensus-labs/store-service.git",
+  "author": "Consensus Labs",
+  "license": "MIT",
+  "files": [
+    "dist/**"
+  ],
+  "devDependencies": {
+    "@types/jest": "^28.1.1",
+    "jest": "^28.1.1",
+    "rollup": "^2.75.6",
+    "rollup-plugin-dts": "^4.2.2",
+    "ts-jest": "^28.0.4",
+    "typescript": "^4.7.3",
+    "rxjs": "^7.4.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "jest --config jestconfig.json",
+    "prepublishOnly": "tsc && rollup -c"
+  },
+  "peerDependencies": {
+    "rxjs": "^7.4.0"
+  }
+}
