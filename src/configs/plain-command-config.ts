@@ -2,10 +2,7 @@ import {listReducerScope, objectReducerScope, ReducerScope} from "../models/redu
 import {ListReducer, ObjectReducer} from "../models/store-types";
 import {PlainCommand} from "../commands/plain-command";
 import {StoreServiceContext} from "./command-config";
-
-type KeysOfType<T, TProp> = { [P in keyof T]-?: T[P] extends TProp ? P : never }[keyof T];
-type ArrayType<T> = T extends (infer A)[] ? A : never;
-type Conditional<T, TBase, TTrue, TFalse = never> = T extends TBase ? TTrue : TFalse;
+import {ArrayType, Conditional, KeysOfType} from "../lib/types";
 
 /**
  * A config for building the Plain Command reducer
@@ -13,7 +10,6 @@ type Conditional<T, TBase, TTrue, TFalse = never> = T extends TBase ? TTrue : TF
  */
 export class PlainCommandObjectConfig<TRoot, TState extends Record<string, any>, TData> {
 
-  /** @internal */
   constructor(
     private context: StoreServiceContext<TRoot>,
     private scope: ReducerScope<TRoot, TState, TData>,
@@ -66,7 +62,6 @@ export class PlainCommandObjectConfig<TRoot, TState extends Record<string, any>,
  */
 class PlainCommandListConfig<TRoot, TState extends TElement[], TElement, TData> {
 
-  /** @internal */
   constructor(
     private context: StoreServiceContext<TRoot>,
     private scope: ReducerScope<TRoot, TState, TData>,

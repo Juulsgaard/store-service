@@ -2,17 +2,13 @@ import {listReducerScope, objectReducerScope, ReducerScope} from "../models/redu
 import {ListReducer, ObjectReducer} from "../models/store-types";
 import {StoreServiceContext} from "./command-config";
 import {DeferredCommand, DeferredCommandOptions} from "../commands/deferred-command";
-
-type KeysOfType<T, TProp> = { [P in keyof T]-?: T[P] extends TProp ? P : never }[keyof T];
-type ArrayType<T> = T extends (infer A)[] ? A : never;
-type Conditional<T, TBase, TTrue, TFalse = never> = T extends TBase ? TTrue : TFalse;
+import {ArrayType, Conditional, KeysOfType} from "../lib/types";
 
 /**
  * A base config that allows modification of an option object
  */
 class DeferredCommandOptionConfig<TPayload, TData> {
 
-  /** @internal */
   constructor(protected options: DeferredCommandOptions<TPayload, TData>) {
   }
 
@@ -49,7 +45,6 @@ class DeferredCommandOptionConfig<TPayload, TData> {
  */
 export class DeferredCommandObjectConfig<TRoot, TState extends Record<string, any>, TPayload, TData> extends DeferredCommandOptionConfig<TPayload, TData> {
 
-  /** @internal */
   constructor(
     private context: StoreServiceContext<TRoot>,
     options: DeferredCommandOptions<TPayload, TData>,
@@ -106,7 +101,6 @@ export class DeferredCommandObjectConfig<TRoot, TState extends Record<string, an
  */
 class DeferredCommandListConfig<TRoot, TState extends TElement[], TElement, TPayload, TData> extends DeferredCommandOptionConfig<TPayload, TData> {
 
-  /** @internal */
   constructor(
     private context: StoreServiceContext<TRoot>,
     options: DeferredCommandOptions<TPayload, TData>,

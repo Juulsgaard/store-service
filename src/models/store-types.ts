@@ -33,10 +33,8 @@ export abstract class StoreCommand<TState> {
    */
   loaded$: Observable<boolean>;
 
-  /** @internal */
   protected context: StoreServiceContext<TState>
 
-  /** @internal */
   protected constructor(context: StoreServiceContext<TState>) {
     this.context = context;
     this.loading$ = context.getLoadState$(this).pipe(map(x => !!x && x > 0));

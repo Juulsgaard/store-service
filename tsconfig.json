@@ -11,8 +11,7 @@
     "downlevelIteration": true,
     "experimentalDecorators": true,
     "moduleResolution": "node",
-    "importHelpers": true,
-    "stripInternal": true
+    "importHelpers": true
   },
   "include": ["src"],
   "exclude": ["node_modules", "src/tests"]

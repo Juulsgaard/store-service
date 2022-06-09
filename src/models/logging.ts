@@ -1,5 +1,4 @@
 
-/** @internal */
 export function logSuccessfulAction(name: string, warning: string | undefined, startedAt: number | undefined, payload: any, data: any) {
   const time = startedAt && Date.now() - startedAt;
   const style = warning ? 'font-weight: bold; color: orange' : 'font-weight: bold';
@@ -12,7 +11,6 @@ export function logSuccessfulAction(name: string, warning: string | undefined, s
   console.groupEnd();
 }
 
-/** @internal */
 export function logFailedAction(name: string, startedAt: number | undefined, payload: any, error: Error) {
   const time = startedAt && Date.now() - startedAt;
   const style = 'font-weight: bold; color: red';

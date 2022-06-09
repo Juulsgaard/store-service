@@ -1,6 +1,5 @@
 import {isObject} from "./type-predicates";
 
-/** @internal */
 export function deepCopy<T>(source: T): T {
 
   if (source === undefined) return undefined!;
@@ -25,11 +24,8 @@ export function deepCopy<T>(source: T): T {
   return source;
 }
 
-/** @internal */
 export function deepFreeze<T>(array: T[]): ReadonlyArray<DeepReadonly<T>>;
-/** @internal */
 export function deepFreeze<T extends object>(obj: T): DeepReadonly<T>;
-/** @internal */
 export function deepFreeze<T>(data: T): DeepReadonly<T> {
   if (data == null) return data as DeepReadonly<T>;
   if (data instanceof Function) return Object.freeze(data) as DeepReadonly<T>;

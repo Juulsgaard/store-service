@@ -6,7 +6,6 @@ import {LoadingState} from "../loading-state";
 
 /**
  * The options for a Deferred Command
- * @internal
  */
 export interface DeferredCommandOptions<TPayload, TData> {
   readonly action: CommandAction<TPayload, TData>;
@@ -23,7 +22,6 @@ export interface DeferredCommandOptions<TPayload, TData> {
  */
 export class DeferredCommand<TState, TPayload, TData>  extends StoreCommand<TState> {
 
-  /** @internal */
   constructor(
     context: StoreServiceContext<TState>,
     private readonly options: DeferredCommandOptions<TPayload, TData>,

@@ -7,7 +7,6 @@ import {PlainCommandObjectConfig} from "./plain-command-config";
 
 /**
  * A context element allowing commands to interface with the store
- * @internal
  */
 export interface StoreServiceContext<TState> {
   getCommandName(cmd: StoreCommand<TState>): string;
@@ -31,7 +30,6 @@ export interface StoreServiceContext<TState> {
 
 export class StoreCommandConfig<TState> {
 
-  /** @internal */
   constructor(private context: StoreServiceContext<TState>) {
   }
 
@@ -84,7 +82,6 @@ export class StoreCommandConfig<TState> {
 
 export class StoreClientCommandConfig<TState, TClient> {
 
-  /** @internal */
   constructor(private context: StoreServiceContext<TState>, private client: TClient) {
   }
 

@@ -9,7 +9,6 @@ import {LoadingState} from "../loading-state";
 
 /**
  * The options for an Action Command
- * @internal
  */
 export interface ActionCommandOptions<TPayload, TData> {
   readonly action: CommandAction<TPayload, TData>;
@@ -34,7 +33,6 @@ export class ActionCommand<TState, TPayload, TData> extends StoreCommand<TState>
   private actionQueue!: Subject<ActionEmission<TPayload, TData>>;
   private queueSubscription?: Subscription;
 
-  /** @internal */
   constructor(
     context: StoreServiceContext<TState>,
     private readonly options: ActionCommandOptions<TPayload, TData>,

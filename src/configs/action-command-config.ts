@@ -2,10 +2,7 @@ import {ActionCommand, ActionCommandOptions} from "../commands/action-command";
 import {applyScopedObjectReducer, listReducerScope, ObjectReducerData, objectReducerScope, ReducerScope} from "../models/reducer-scope";
 import {ListReducer, ObjectReducer} from "../models/store-types";
 import {StoreServiceContext} from "./command-config";
-
-type KeysOfType<T, TProp> = { [P in keyof T]-?: T[P] extends TProp ? P : never }[keyof T];
-type ArrayType<T> = T extends (infer A)[] ? A : never;
-type Conditional<T, TBase, TTrue, TFalse = never> = T extends TBase ? TTrue : TFalse;
+import {ArrayType, Conditional, KeysOfType} from "../lib/types";
 
 
 /**
@@ -13,7 +10,6 @@ type Conditional<T, TBase, TTrue, TFalse = never> = T extends TBase ? TTrue : TF
  */
 class ActionCommandOptionConfig<TPayload, TData> {
 
-  /** @internal */
   constructor(protected options: ActionCommandOptions<TPayload, TData>) {
   }
 
@@ -77,7 +73,6 @@ class ActionCommandOptionConfig<TPayload, TData> {
  */
 export class ActionCommandObjectConfig<TRoot, TState extends Record<string, any>, TPayload, TData> extends ActionCommandOptionConfig<TPayload, TData> {
 
-  /** @internal */
   constructor(
     private context: StoreServiceContext<TRoot>,
     options: ActionCommandOptions<TPayload, TData>,
@@ -153,7 +148,6 @@ export class ActionCommandObjectConfig<TRoot, TState extends Record<string, any>
  */
 class ActionCommandListConfig<TRoot, TState extends TElement[], TElement, TPayload, TData> extends ActionCommandOptionConfig<TPayload, TData> {
 
-  /** @internal */
   constructor(
     private context: StoreServiceContext<TRoot>,
     options: ActionCommandOptions<TPayload, TData>,
@@ -227,7 +221,6 @@ class ActionCommandListConfig<TRoot, TState extends TElement[], TElement, TPaylo
  */
 class ActionCommandObjectDataConfig<TRoot, TState extends Record<string, any>, TPayload, TData, TModified> extends ActionCommandOptionConfig<TPayload, TData> {
 
-  /** @internal */
   constructor(
     private context: StoreServiceContext<TRoot>,
     options: ActionCommandOptions<TPayload, TData>,
@@ -260,7 +253,6 @@ class ActionCommandObjectDataConfig<TRoot, TState extends Record<string, any>, T
  */
 class ActionCommandListDataConfig<TRoot, TState extends TElement[], TElement, TPayload, TData, TModified> extends ActionCommandOptionConfig<TPayload, TData> {
 
-  /** @internal */
   constructor(
     private context: StoreServiceContext<TRoot>,
     options: ActionCommandOptions<TPayload, TData>,

@@ -1,11 +1,8 @@
 import {ListReducer} from "../models/store-types";
+import {WithId} from "../lib/types";
 
 
-namespace Reducers {
-
-  interface WithId {
-    id: string;
-  }
+export namespace Reducers {
 
   /**
    * Add an element to the end of a list
@@ -48,5 +45,3 @@ namespace Reducers {
   }
 
 }
-
-export default Reducers;
