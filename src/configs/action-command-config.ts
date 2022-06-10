@@ -2,7 +2,7 @@ import {ActionCommand, ActionCommandOptions} from "../commands/action-command";
 import {applyScopedObjectReducer, listReducerScope, ObjectReducerData, objectReducerScope, ReducerScope} from "../models/reducer-scope";
 import {ListReducer, ObjectReducer} from "../models/store-types";
 import {StoreServiceContext} from "./command-config";
-import {ArrayType, Conditional, KeysOfType} from "../lib/types";
+import {ArrayType, Conditional, KeysOfType} from "@consensus-labs/ts-tools";
 
 
 /**

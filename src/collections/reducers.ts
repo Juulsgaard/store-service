@@ -1,5 +1,5 @@
 import {ListReducer} from "../models/store-types";
-import {WithId} from "../lib/types";
+import {WithId} from "@consensus-labs/ts-tools";
 
 
 export namespace Reducers {

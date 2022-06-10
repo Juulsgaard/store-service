@@ -2,7 +2,7 @@ import {listReducerScope, objectReducerScope, ReducerScope} from "../models/redu
 import {ListReducer, ObjectReducer} from "../models/store-types";
 import {StoreServiceContext} from "./command-config";
 import {DeferredCommand, DeferredCommandOptions} from "../commands/deferred-command";
-import {ArrayType, Conditional, KeysOfType} from "../lib/types";
+import {ArrayType, Conditional, KeysOfType} from "@consensus-labs/ts-tools";
 
 /**
  * A base config that allows modification of an option object

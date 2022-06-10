@@ -2,7 +2,7 @@ import {listReducerScope, objectReducerScope, ReducerScope} from "../models/redu
 import {ListReducer, ObjectReducer} from "../models/store-types";
 import {PlainCommand} from "../commands/plain-command";
 import {StoreServiceContext} from "./command-config";
-import {ArrayType, Conditional, KeysOfType} from "../lib/types";
+import {ArrayType, Conditional, KeysOfType} from "@consensus-labs/ts-tools";
 
 /**
  * A config for building the Plain Command reducer

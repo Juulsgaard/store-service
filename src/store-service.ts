@@ -4,9 +4,7 @@ import {StoreCommand} from "./models/store-types";
 import {IStoreConfigService} from "./models/store-config-service";
 import {catchError} from "rxjs/operators";
 import {ActionCommand} from "./commands/action-command";
-import {deepCopy, deepFreeze} from "./lib/objects";
-import {arrayToMap} from "./lib/arrays";
-import {toTitleCase} from "./lib/strings";
+import {arrToMap, deepCopy, deepFreeze, titleCase} from "@consensus-labs/ts-tools";
 
 /**
  * A service managing the store state
@@ -33,11 +31,10 @@ export abstract class StoreService<TState extends Record<string, any>> {
   private _actionNames?: Map<StoreCommand<TState>, string>;
   private get actionNames(): Map<StoreCommand<TState>, string> {
     if (this._actionNames) return this._actionNames;
-    this._actionNames = arrayToMap(
-      Object.entries(this)
-      .filter(([_, val]) => val instanceof StoreCommand),
+    this._actionNames = arrToMap(
+      Object.entries(this).filter(([_, val]) => val instanceof StoreCommand),
       ([_, val]) => val,
-      ([key]) => toTitleCase(key)
+      ([key]) => titleCase(key)
     );
     return this._actionNames;
   }
@@ -83,7 +80,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
     this.state$ = this._state$.pipe(
       shareReplay({bufferSize: 1, refCount: true})
     );
-    this.storeName = toTitleCase(this.constructor.name);
+    this.storeName = titleCase(this.constructor.name);
 
     this.startQueue();
   }

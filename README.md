@@ -11,3 +11,9 @@ npm config set -- //gitlab.com/api/v4/projects/36878880/packages/npm/:_authToken
 ```
 
 Where `$AUTH_TOKEN$` is your GitLab API token
+
+You will also need to add the following for package download:
+
+```cmd
+npm config set -- //gitlab.com/api/v4/packages/npm/:_authToken $AUTH_TOKEN$
+```
