@@ -13,7 +13,7 @@ export namespace Reducers {
 
   /**
    * Update an element in a list
-   * Element targeted based on ID
+   * Element is targeted based on ID
    */
   export function updateById<TState extends TElement[], TElement extends WithId>(): ListReducer<TState, TElement, Partial<TElement>&WithId> {
     return (data, state) => {
@@ -31,7 +31,7 @@ export namespace Reducers {
 
   /**
    * Remove an element from a list
-   * Element targeted based on ID
+   * Element is targeted based on ID
    */
   export function deleteById<TState extends TElement[], TElement extends WithId, TData extends string>(): ListReducer<TState, TElement, TData> {
     return (data, state) => {
@@ -40,6 +40,25 @@ export namespace Reducers {
 
       const newState = [...state];
       newState.splice(index, 1);
+      return newState as TState;
+    };
+  }
+
+  /**
+   * Update an element in a list
+   * Element is targeted based on ID
+   * If the element doesn't exist then it's added to the end of the list
+   */
+  export function setById<TState extends TElement[], TElement extends WithId>(): ListReducer<TState, TElement, TElement> {
+    return (data, state) => {
+      const index = state.findIndex(x => x.id === data.id);
+
+      if (index < 0) return [...state, data] as TState;
+
+      const val = state[index];
+
+      const newState = [...state];
+      newState.splice(index, 1, {...val, ...data});
       return newState as TState;
     };
   }
