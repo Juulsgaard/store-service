@@ -2,12 +2,12 @@ import {ListReducer} from "../models/store-types";
 import {WithId} from "@consensus-labs/ts-tools";
 
 
-export namespace Reducers {
+export class BaseReducers {
 
   /**
    * Add an element to the end of a list
    */
-  export function addition<TState extends TElement[], TElement, TData extends TElement>(): ListReducer<TState, TElement, TData> {
+  static addition<TState extends TElement[], TElement, TData extends TElement>(): ListReducer<TState, TElement, TData> {
     return (data, state) => [...state, data] as TState;
   }
 
@@ -15,7 +15,7 @@ export namespace Reducers {
    * Update an element in a list
    * Element is targeted based on ID
    */
-  export function updateById<TState extends TElement[], TElement extends WithId>(): ListReducer<TState, TElement, Partial<TElement>&WithId> {
+  static updateById<TState extends TElement[], TElement extends WithId>(): ListReducer<TState, TElement, Partial<TElement>&WithId> {
     return (data, state) => {
       const index = state.findIndex(x => x.id === data.id);
 
@@ -33,7 +33,7 @@ export namespace Reducers {
    * Remove an element from a list
    * Element is targeted based on ID
    */
-  export function deleteById<TState extends TElement[], TElement extends WithId, TData extends string>(): ListReducer<TState, TElement, TData> {
+  static deleteById<TState extends TElement[], TElement extends WithId, TData extends string>(): ListReducer<TState, TElement, TData> {
     return (data, state) => {
       const index = state.findIndex(x => x.id === data);
       if (index < 0) return state;
@@ -49,7 +49,7 @@ export namespace Reducers {
    * Element is targeted based on ID
    * If the element doesn't exist then it's added to the end of the list
    */
-  export function setById<TState extends TElement[], TElement extends WithId>(): ListReducer<TState, TElement, TElement> {
+  static setById<TState extends TElement[], TElement extends WithId>(): ListReducer<TState, TElement, TElement> {
     return (data, state) => {
       const index = state.findIndex(x => x.id === data.id);
 
