@@ -141,7 +141,8 @@ export class LoadingState<TData> implements ILoadingState {
       this.isAsync = true;
       this.subscription = data.pipe(first()).subscribe({
         next: val => this.setValue(val),
-        error: error => this.setError(error)
+        error: error => this.setError(error),
+        complete: () => this.setError('Observable completed without value')
       });
       return;
     }
@@ -159,6 +160,8 @@ export class LoadingState<TData> implements ILoadingState {
     this._result$.next(val);
     this._result$.complete();
     this._loading$.next(false)
+    this._loading$.complete();
+    this.subscription?.unsubscribe();
   }
 
   /**
@@ -170,6 +173,8 @@ export class LoadingState<TData> implements ILoadingState {
     this._result$.error(LoadingState.parseError(error));
     this._result$.complete();
     this._loading$.next(false)
+    this._loading$.complete();
+    this.subscription?.unsubscribe();
   }
 
   /**
