@@ -183,7 +183,7 @@ export class LoadingState<TData> implements ILoadingState {
    * @private
    */
   private static parseError(error: Error | any): Error {
-    if (error instanceof Error) return error;
+    if ('name' in error && 'message' in error) return error;
     return Error(error.toString());
   }
 
