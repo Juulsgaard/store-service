@@ -228,7 +228,7 @@ export class LoadingState<TData> implements ILoadingState {
    * @param func
    */
   finally(func: () => void): this {
-    this.result$.subscribe({complete: func});
+    this.result$.subscribe({complete: func, error: func});
     return this;
   }
 }
