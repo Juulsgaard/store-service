@@ -4,7 +4,7 @@ import {Reducer, StoreCommand} from "./models/store-types";
 import {IStoreConfigService} from "./models/store-config-service";
 import {catchError} from "rxjs/operators";
 import {ActionCommand} from "./commands/action-command";
-import {arrToMap, deepCopy, deepFreeze, titleCase} from "@consensus-labs/ts-tools";
+import {arrToMap, deepCopy, deepFreeze, slugify, titleCase} from "@consensus-labs/ts-tools";
 import {QueueAction} from "./models/queue-action";
 
 /**
