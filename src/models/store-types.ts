@@ -10,6 +10,8 @@ export type CommandAction<TPayload, TData> =
   | ((payload: TPayload) => Observable<TData>)
   | ((payload: TPayload) => TData);
 
+export type Reducer<TState> = (state: TState) => TState;
+
 /**
  * A reducer that can be applied to a list
  */

@@ -6,5 +6,5 @@ export interface IStoreConfigService {
   displaySuccess(message: string): void;
   displayError(message: string|undefined, error: Error): void;
   readonly isProduction: boolean;
-
+  readonly disableCache: boolean;
 }

@@ -1,8 +1,10 @@
 import {logFailedAction, logSuccessfulAction} from "../models/logging";
-import {ReplaySubject} from "rxjs";
-import {CommandAction, StoreCommand} from "../models/store-types";
+import {EMPTY, ReplaySubject, startWith, switchMap, tap} from "rxjs";
+import {CommandAction, Reducer, StoreCommand} from "../models/store-types";
 import {StoreServiceContext} from "../configs/command-config";
 import {LoadingState} from "../loading-state";
+import {map} from "rxjs/operators";
+import {QueueAction} from "../models/queue-action";
 
 /**
  * The options for a Deferred Command
@@ -36,46 +38,40 @@ export class DeferredCommand<TState, TPayload, TData>  extends StoreCommand<TSta
    */
   observe(payload: TPayload): LoadingState<TData> {
 
-    // Create a transaction
-    // The store command queue will help until the subject completes
-    const transaction = new ReplaySubject<(state: TState) => TState>(1);
-    let snapshot: TState;
-    let startedAt: number;
-
     this.context.startLoad(this);
 
     // Set up a delayed loading state
-    const loadingState = LoadingState.Delayed(() => this.options.action(payload))
+    const state = LoadingState.Delayed(() => this.options.action(payload))
 
-    // Send the transaction to the store
-    this.context.applyCommand(transaction);
+    // Define the execution for the Command
+    const execute = () => {
+      const startedAt = Date.now();
 
-    // Start the transaction with the eager reducer
-    transaction.next((state: TState) => {
-      // Save a snapshot for rollback
-      snapshot = state;
-      startedAt = Date.now();
+      // Trigger action, send reducer and complete when API is done
+      return state.trigger$.pipe(
+        // Log success / error
+        tap({
+          next: result => this.onSuccess(payload, result, startedAt),
+          error: error => this.onFailure(payload, error, startedAt)
+        }),
+        switchMap(() => EMPTY),
+        // Start with reducer
+        startWith<Reducer<TState>>(state => this.reducer(state, payload))
+      )
+    };
 
-      // Start the API call when the eager reducer is applied
-      loadingState.trigger();
+    // Send Queue Action
+    this.context.applyCommand(new QueueAction<TState>(
+      this,
+      execute,
+      () => state.cancel(),
+      false,
+      true
+    ));
 
-      return this.reducer(state, payload);
-    });
+    state.finally(() => this.context.endLoad(this));
 
-    loadingState
-      .then(result => this.onSuccess(payload, result, startedAt))
-      .catch(error => {
-        // If the API call fails, roll back the store
-        if (snapshot !== undefined) transaction.next(() => snapshot);
-        this.onFailure(payload, error, startedAt);
-      })
-      .finally(() => {
-        // Complete the transaction when the API call has finished
-        transaction.complete();
-        this.context.endLoad(this);
-      });
-
-    return loadingState;
+    return state;
   };
 
   /**

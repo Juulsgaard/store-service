@@ -4,6 +4,7 @@ import {ActionCommandObjectConfig} from "./action-command-config";
 import {DeferredCommandObjectConfig} from "./deferred-command-config";
 import {rootReducerScope} from "../models/reducer-scope";
 import {PlainCommandObjectConfig} from "./plain-command-config";
+import {QueueAction} from "../models/queue-action";
 
 /**
  * A context element allowing commands to interface with the store
@@ -11,7 +12,7 @@ import {PlainCommandObjectConfig} from "./plain-command-config";
 export interface StoreServiceContext<TState> {
   getCommandName(cmd: StoreCommand<TState>): string;
 
-  applyCommand(reducer$: Observable<(state: TState) => TState>): void;
+  applyCommand(action: QueueAction<TState>): void;
 
   displaySuccess(message: string): void;
 

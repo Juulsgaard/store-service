@@ -1,9 +1,10 @@
 {
   "name": "@consensus-labs/store-service",
-  "version": "1.0.8",
+  "version": "1.1.0",
   "description": "A state management system for Javascript",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "type": "module",
   "repository": "git@gitlab.com:consensus-labs/store-service.git",
   "author": "Consensus Labs",
   "license": "MIT",
@@ -14,8 +15,9 @@
     "@consensus-labs:registry": "https://gitlab.com/api/v4/projects/36878880/packages/npm/"
   },
   "devDependencies": {
-    "@consensus-labs/ts-tools": "^1.0.0",
+    "@consensus-labs/ts-tools": "1.0.4",
     "@types/jest": "^28.1.1",
+    "cross-env": "^7.0.3",
     "jest": "^28.1.1",
     "rollup": "^2.75.6",
     "rollup-plugin-dts": "^4.2.2",
@@ -25,11 +27,11 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "jest --config jestconfig.json",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules npx jest --config jestconfig.json",
     "prepublishOnly": "tsc && rollup -c"
   },
   "peerDependencies": {
-    "@consensus-labs/ts-tools": "^1.0.0",
+    "@consensus-labs/ts-tools": "^1.0.3",
     "rxjs": "^7.4.0"
   }
 }

@@ -1,7 +1,6 @@
-
-import {of} from "rxjs";
 import {StoreCommand} from "../models/store-types";
 import {StoreServiceContext} from "../configs/command-config";
+import {QueueAction} from "../models/queue-action";
 
 export class PlainCommand<TState, TData> extends StoreCommand<TState> {
 
@@ -13,7 +12,7 @@ export class PlainCommand<TState, TData> extends StoreCommand<TState> {
   }
 
   emit(payload: TData) {
-    this.context.applyCommand(of(state => this.reducer(state, payload)));
+    this.context.applyCommand(new QueueAction<TState>(this, () => state => this.reducer(state, payload)));
   };
 
 }

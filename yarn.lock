@@ -284,10 +284,10 @@
   resolved "https://registry.npmjs.org/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
-"@consensus-labs/ts-tools@^1.0.0":
-  version "1.0.0"
-  resolved "https://gitlab.com/api/v4/projects/36928519/packages/npm/@consensus-labs/ts-tools/-/@consensus-labs/ts-tools-1.0.0.tgz#56e7208e3e7f4d5f7331c8f54e9611c3489f297e"
-  integrity sha1-Vucgjj5/TV9zMcj1TpYRw0ifKX4=
+"@consensus-labs/ts-tools@1.0.4":
+  version "1.0.4"
+  resolved "https://gitlab.com/api/v4/projects/36928519/packages/npm/@consensus-labs/ts-tools/-/@consensus-labs/ts-tools-1.0.4.tgz#825d1dc572eac9aa657a7b29324e770b6c00c7a7"
+  integrity sha1-gl0dxXLqyaplenspMk53C2wAx6c=
 
 "@istanbuljs/load-nyc-config@^1.0.0":
   version "1.1.0"
@@ -914,7 +914,14 @@ convert-source-map@^1.4.0, convert-source-map@^1.6.0, convert-source-map@^1.7.0:
   dependencies:
     safe-buffer "~5.1.1"
 
-cross-spawn@^7.0.3:
+cross-env@^7.0.3:
+  version "7.0.3"
+  resolved "https://registry.yarnpkg.com/cross-env/-/cross-env-7.0.3.tgz#865264b29677dc015ba8418918965dd232fc54cf"
+  integrity sha512-+/HKd6EgcQCJGh2PSjZuUitQBQynKor4wrFbRg4DtAgS1aWO+gU52xpH7M9ScGgXSYmAVS9bIJ8EzuaGw0oNAw==
+  dependencies:
+    cross-spawn "^7.0.1"
+
+cross-spawn@^7.0.1, cross-spawn@^7.0.3:
   version "7.0.3"
   resolved "https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.3.tgz"
   integrity sha512-iRDPJKUPVEND7dHPO8rkbOnPpyDygcDFtWjpeWNCgy8WP2rXcxXL8TskReQl6OrB2G7+UJrags1q15Fudc7G6w==

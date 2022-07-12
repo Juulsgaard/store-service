@@ -1,10 +1,11 @@
 import {BehaviorSubject, concatMap, distinctUntilChanged, EMPTY, Observable, shareReplay, Subject, Subscription} from "rxjs";
 import {StoreClientCommandConfig, StoreCommandConfig, StoreServiceContext} from "./configs/command-config";
-import {StoreCommand} from "./models/store-types";
+import {Reducer, StoreCommand} from "./models/store-types";
 import {IStoreConfigService} from "./models/store-config-service";
 import {catchError} from "rxjs/operators";
 import {ActionCommand} from "./commands/action-command";
 import {arrToMap, deepCopy, deepFreeze, titleCase} from "@consensus-labs/ts-tools";
+import {QueueAction} from "./models/queue-action";
 
 /**
  * A service managing the store state
@@ -72,7 +73,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
    * Every observable is a transaction that has to complete before the next can start
    * @private
    */
-  private reducerQueue$!: Subject<Observable<(state: TState) => TState>>;
+  private reducerQueue$!: Subject<QueueAction<TState>>;
   private queueSub?: Subscription;
 
   protected constructor(private initialState: TState, private configService: IStoreConfigService) {
@@ -85,6 +86,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
     this.startQueue();
   }
 
+  //<editor-fold desc="Queue Logic">
   /**
    * Clear and set up the Reducer queue
    * @private
@@ -92,11 +94,84 @@ export abstract class StoreService<TState extends Record<string, any>> {
   private startQueue() {
     this.queueSub?.unsubscribe();
     this.reducerQueue$ = new Subject();
-    this.queueSub = this.reducerQueue$.pipe(
-      catchError(() => EMPTY),
-      concatMap(x => x)
-    ).subscribe(reducer => this.applyState(reducer(this._state$.value)));
+
+    const subs = new Subscription();
+    const queue: QueueAction<TState>[] = [];
+    const typeQueues = new Set<StoreCommand<TState>>();
+    let transaction: Observable<Reducer<TState>> | undefined;
+    const self = this;
+
+    function dequeue() {
+      if (transaction) return;
+      if (!queue.length) return;
+
+      // Find first action that isn't blocked
+      const actionIndex = queue.findIndex(x => !typeQueues.has(x.type))
+      if (actionIndex < 0) return;
+      const action = queue.splice(actionIndex, 1)[0];
+
+      // Execute action
+      if (action.runInTransaction) runTransaction(action);
+      else if (action.queued) runQueued(action);
+      else run(action);
+    }
+
+    function applyReducer(reducer: Reducer<TState>) {
+      self.applyState(reducer(self._state$.value));
+    }
+
+    // Apply a simple action
+    function run(action: QueueAction<TState>) {
+      subs.add(action.run().subscribe(applyReducer));
+      dequeue();
+    }
+
+    // Apply an action in a transaction
+    function runTransaction(action: QueueAction<TState>) {
+
+      const snapshot = self._state$.value;
+      transaction = action.run();
+
+      function finish() {
+        transaction = undefined;
+        dequeue();
+      }
+
+      subs.add(transaction.subscribe({
+        next: applyReducer,
+        error: () => {
+          applyReducer(() => snapshot);
+          finish();
+        },
+        complete: finish,
+      }));
+    }
+
+    // Apply a queued action
+    function runQueued(action: QueueAction<TState>) {
+      typeQueues.add(action.type);
+
+      function finish() {
+        typeQueues.delete(action.type);
+        dequeue();
+      }
+
+      subs.add(action.run().subscribe({
+        next: applyReducer,
+        error: finish,
+        complete: finish,
+      }));
+    }
+
+    subs.add(this.reducerQueue$.subscribe(action => {
+      queue.push(action);
+      dequeue();
+    }));
+
+    this.queueSub = subs;
   }
+
+  //</editor-fold>
 
   /**
    * Apply a new state to the store
@@ -167,10 +242,6 @@ export abstract class StoreService<TState extends Record<string, any>> {
    * Reset the entire store
    */
   reset() {
-
-    for (let command of this.actionNames.keys()) {
-      if (command instanceof ActionCommand) command.reset();
-    }
 
     //Restart the queue
     this.startQueue();
