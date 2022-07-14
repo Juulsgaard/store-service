@@ -1,5 +1,6 @@
 
 export interface CacheItemData<TData> {
+  id: string;
   createdAt: Date;
   updatedAt: Date;
   data: TData;
@@ -33,6 +34,7 @@ export interface CacheTransactionAdapter {
 
   readValue<TData>(id: string): Promise<CacheItemData<TData> | undefined>;
 
+  readAllValues<TData>(): Promise<CacheItemData<TData>[]>;
 
   commit(): Promise<void>;
   revert(): Promise<void>;

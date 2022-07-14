@@ -1,5 +1,6 @@
 import {
-  BehaviorSubject, from, lastValueFrom, Observable, Observer, of, ReplaySubject, Subject, Subscribable, Subscription, switchMap, tap, throwError,
+  BehaviorSubject, from, isObservable, lastValueFrom, Observable, Observer, of, ReplaySubject, Subject, Subscribable, Subscription, switchMap, tap,
+  throwError,
   Unsubscribable
 } from "rxjs";
 import {first, map} from "rxjs/operators";
@@ -49,7 +50,7 @@ export class LoadingState<TData> implements ILoadingState {
       // Apply modification to result
       if (modify) {
         if (data instanceof Promise) data = data.then(x => modify(x) ?? x);
-        else if (data instanceof Observable) data = data.pipe(map(x => modify(x) ?? x));
+        else if (isObservable(data)) data = data.pipe(map(x => modify(x) ?? x));
         else data = modify(data) ?? data;
       }
 
@@ -137,7 +138,7 @@ export class LoadingState<TData> implements ILoadingState {
       return;
     }
 
-    if (data instanceof Observable) {
+    if (isObservable(data)) {
       this.isAsync = true;
       this.subscription = data.pipe(first()).subscribe({
         next: val => this.setValue(val),
@@ -244,7 +245,7 @@ export class DelayedLoadingState<TData> extends LoadingState<TData> {
       first(),
       switchMap(() => {
         const data = action();
-        if (data instanceof Observable) return data;
+        if (isObservable(data)) return data;
         if (data instanceof Promise) return from(data);
         return of(data);
       }),

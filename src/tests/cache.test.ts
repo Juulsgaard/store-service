@@ -66,7 +66,8 @@ test('Cache', async () => {
   const firstValue = await store.cached.readItem('first');
   expect(firstValue?.data.value).toEqual('Test');
 
-
+  const allValues = await store.cached.readAll();
+  expect(allValues.length).toEqual(2);
 
   store.remove.emit('first');
   store.update.emit({id: 'second', value: 'NewVal'});

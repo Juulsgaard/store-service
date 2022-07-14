@@ -4,7 +4,7 @@ import {CacheChunkContext, CacheDatabaseContext} from "./caching-interface";
 import {CacheChunk} from "./cache-chunk";
 
 export class CacheConfig<TState> {
-  constructor(private chunkId: string, private version: number, private databaseContext: CacheDatabaseContext, private state$: Observable<TState>) {
+  constructor(private chunkId: string, private version: number, private databaseContext: CacheDatabaseContext, private states$: Observable<Observable<TState>>) {
   }
 
   withChunks<TChunk>(chunk: (state: TState) => TChunk[]): CacheChunkConfig<TChunk> {
@@ -12,7 +12,7 @@ export class CacheConfig<TState> {
 
     context.init(this.version).catch(e => console.error('Failed to initialise Cache Chunk', e));
 
-    const chunks$ = this.state$.pipe(map(chunk));
+    const chunks$ = this.states$.pipe(map(state$ => state$.pipe(map(chunk))));
 
     return new CacheChunkConfig<TChunk>(context, chunks$);
   }
@@ -22,11 +22,13 @@ export class CacheConfig<TState> {
 
     context.init(this.version).catch(e => console.error('Failed to initialise Cache Chunk', e));
 
-    const chunks$ = this.state$.pipe(map(x => {
-      const globalChunk = chunk(x);
-      if (globalChunk) return [globalChunk];
-      return [];
-    }));
+    const chunks$ = this.states$.pipe(map(state$ => state$.pipe(
+      map(x => {
+        const globalChunk = chunk(x);
+        if (globalChunk) return [globalChunk];
+        return [];
+      })
+    )));
 
     return new CacheChunk<TChunk>(chunks$, context, () => 'global');
   }
@@ -34,7 +36,7 @@ export class CacheConfig<TState> {
 
 class CacheChunkConfig<TChunk> {
 
-  constructor(private context: CacheChunkContext<TChunk>, private chunks$: Observable<TChunk[]>) {
+  constructor(private context: CacheChunkContext<TChunk>, private chunks$: Observable<Observable<TChunk[]>>) {
   }
 
   withId(getId: (chunk: TChunk) => string): CacheChunk<TChunk> {

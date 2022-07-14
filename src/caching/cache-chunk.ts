@@ -1,28 +1,35 @@
-import {distinctUntilChanged, EMPTY, from, Observable} from "rxjs";
+import {distinctUntilChanged, EMPTY, from, Observable, switchMap, tap} from "rxjs";
 import {catchError, concatMap, filter, map, pairwise} from "rxjs/operators";
 import {arrToMap} from "@consensus-labs/ts-tools";
 import {CacheChunkContext} from "./caching-interface";
 import {CacheItemData} from "./caching-adapter";
 
 interface Changes<TChunk> {
-  added: {id: string, data: TChunk}[];
-  updated: {id: string, data: TChunk}[];
-  removed: {id: string}[];
+  added: { id: string, data: TChunk }[];
+  updated: { id: string, data: TChunk }[];
+  removed: { id: string }[];
 }
 
 export class CacheChunk<TChunk> {
-  private ignoreValueChange?: string;
+  private ignoreValueChange = new Set<string>();
 
-  constructor(private chunks$: Observable<TChunk[]>, private context: CacheChunkContext<TChunk>, private getId: (chunk: TChunk) => string) {
+  constructor(private chunks$: Observable<Observable<TChunk[]>>, private context: CacheChunkContext<TChunk>, private getId: (chunk: TChunk) => string) {
     this.chunks$.pipe(
-      distinctUntilChanged(),
-      map(x => arrToMap(x, getId)),
-      pairwise(),
-      map(([oldMap, newMap]) => this.mapChanges(oldMap, newMap)),
-      filter(x => !!x.added.length || !!x.updated.length || !!x.removed.length),
-      concatMap(x => from(this.applyChanges(x))),
-      catchError(() => EMPTY)
+      tap(() => this.reset()),
+      switchMap(state$ => state$.pipe(
+        distinctUntilChanged(),
+        map(x => arrToMap(x, getId)),
+        pairwise(),
+        map(([oldMap, newMap]) => this.mapChanges(oldMap, newMap)),
+        filter(x => !!x.added.length || !!x.updated.length || !!x.removed.length),
+        concatMap(x => from(this.applyChanges(x))),
+        catchError(() => EMPTY)
+      ))
     ).subscribe();
+  }
+
+  private reset() {
+    this.ignoreValueChange.clear();
   }
 
   private mapChanges(oldMap: Map<string, TChunk>, newMap: Map<string, TChunk>): Changes<TChunk> {
@@ -38,24 +45,23 @@ export class CacheChunk<TChunk> {
       const newValue = newMap.get(id);
 
       if (!newValue) {
-        if (this.ignoreValueChange === id) continue;
         changes.removed.push({id});
         continue;
       }
 
       if (oldValue === newValue) continue;
-      if (this.ignoreValueChange === id) continue;
+      if (this.ignoreValueChange.has(id)) continue;
 
       changes.updated.push({id, data: newValue});
     }
 
     for (let [id, newValue] of newMap) {
       if (oldMap.has(id)) continue;
-      if (this.ignoreValueChange === id) continue;
+      if (this.ignoreValueChange.has(id)) continue;
       changes.added.push({id, data: newValue});
     }
 
-    this.ignoreValueChange = undefined;
+    this.ignoreValueChange.clear();
     return changes;
   }
 
@@ -88,10 +94,10 @@ export class CacheChunk<TChunk> {
    * @param id
    * @param maxAge
    */
-  loadItem(id: string, maxAge?: number): Observable<TChunk|undefined> {
+  loadItem(id: string, maxAge?: number): Observable<TChunk | undefined> {
     // Ignore the next time this value is updated in the store
     // This is to skip the change resulting from this cache load
-    this.ignoreValueChange = id;
+    this.ignoreValueChange.add(id);
 
     if (!maxAge) {
       return from(this.readItem(id)).pipe(
@@ -110,12 +116,58 @@ export class CacheChunk<TChunk> {
   }
 
   /**
+   * Load all items and mark them as loaded
+   * Should only be used to populate a store
+   * @param maxAge
+   */
+  loadAll(maxAge?: number): Observable<TChunk[] | undefined> {
+    let values$: Observable<CacheItemData<TChunk>[] | undefined>;
+
+    if (maxAge) {
+      values$ = from(this.readAll()).pipe(
+        map(list => {
+
+          // Get oldest date
+          const oldest = list.reduce((state: number, x: CacheItemData<TChunk>) => {
+              const time = x.createdAt.getTime();
+              if (time < state) return time;
+              return state;
+            },
+            Date.now()
+          );
+
+          if (!oldest) return list;
+          const age = Date.now() - oldest;
+          if (age > maxAge) return undefined;
+          return list;
+        })
+      );
+    } else {
+      values$ = from(this.readAll());
+    }
+
+    return values$.pipe(
+      tap(list => list?.forEach(x => this.ignoreValueChange.add(x.id))),
+      map(list => list?.map(x => x.data))
+    );
+  }
+
+  /**
    * Read a value from the cache
    * @param id
    */
-  async readItem(id: string): Promise<CacheItemData<TChunk>|undefined> {
+  async readItem(id: string): Promise<CacheItemData<TChunk> | undefined> {
     const trx = this.context.startTransaction(true);
 
     return trx.then(x => x.readValue(id));
+  }
+
+  /**
+   * Read all values from the cache
+   */
+  async readAll(): Promise<CacheItemData<TChunk>[]> {
+    const trx = this.context.startTransaction(true);
+
+    return trx.then(x => x.readAllValues());
   }
 }

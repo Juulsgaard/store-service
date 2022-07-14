@@ -50,14 +50,14 @@ export class ActionCommand<TState, TPayload, TData> extends StoreCommand<TState>
     this.context.startLoad(this);
 
     // Create a delayed loading state
-    const state = LoadingState.Delayed(() => this.options.action(payload), this.options.modify);
+    const loadState = LoadingState.Delayed(() => this.options.action(payload), this.options.modify);
 
     // Define the execution for the Command
     const execute = () => {
       const startedAt = Date.now();
 
       // Trigger action and map result
-      return state.trigger$.pipe(
+      return loadState.trigger$.pipe(
         // Log errors
         tap({error: error => this.onFailure(payload, error, startedAt)}),
         // Generate reducer
@@ -72,13 +72,13 @@ export class ActionCommand<TState, TPayload, TData> extends StoreCommand<TState>
     this.context.applyCommand(new QueueAction<TState>(
       this,
       execute,
-      () => state.cancel(),
+      () => loadState.cancel(),
       this.options.queue
     ));
 
-    state.finally(() => this.context.endLoad(this));
+    loadState.finally(() => this.context.endLoad(this));
 
-    return state;
+    return loadState;
   };
 
   /**

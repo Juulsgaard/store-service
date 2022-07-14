@@ -1,5 +1,5 @@
 import {Reducer, StoreCommand} from "./store-types";
-import {EMPTY, Observable, of, tap} from "rxjs";
+import {EMPTY, isObservable, Observable, of, tap} from "rxjs";
 
 export class QueueAction<TState> {
 
@@ -23,7 +23,7 @@ export class QueueAction<TState> {
     const result = this.action();
     if (!result) return EMPTY;
 
-    if (result instanceof Observable) {
+    if (isObservable(result)) {
       return result.pipe(tap({unsubscribe: () => this.onCancel?.()}));
     }
 

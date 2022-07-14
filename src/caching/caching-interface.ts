@@ -79,6 +79,10 @@ class CacheChunkTransaction<TChunk> {
     return await this.adapter.readValue<TChunk>(id);
   }
 
+  async readAllValues(): Promise<CacheItemData<TChunk>[]> {
+    return await this.adapter.readAllValues<TChunk>();
+  }
+
   async addValue(id: string, value: TChunk) {
     await this.adapter.addValue(id, value);
     this.changes = true;
