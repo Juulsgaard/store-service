@@ -2,6 +2,7 @@ import {distinctUntilChanged, EMPTY, from, Observable} from "rxjs";
 import {catchError, concatMap, filter, map, pairwise} from "rxjs/operators";
 import {arrToMap} from "@consensus-labs/ts-tools";
 import {CacheChunkContext} from "./caching-interface";
+import {CacheItemData} from "./caching-adapter";
 
 interface Changes<TChunk> {
   added: {id: string, data: TChunk}[];
@@ -59,7 +60,7 @@ export class CacheChunk<TChunk> {
   }
 
   private async applyChanges(changes: Changes<TChunk>) {
-    const trx = await this.context.startTransaction();
+    const trx = await this.context.startTransaction(false);
 
     try {
 
@@ -81,20 +82,40 @@ export class CacheChunk<TChunk> {
     }
   }
 
+  /**
+   * Load an item and mark is as loaded
+   * Should only be used to populate a store
+   * @param id
+   * @param maxAge
+   */
   loadItem(id: string, maxAge?: number): Observable<TChunk|undefined> {
     // Ignore the next time this value is updated in the store
     // This is to skip the change resulting from this cache load
     this.ignoreValueChange = id;
 
-    const trx = this.context.startTransaction();
+    if (!maxAge) {
+      return from(this.readItem(id)).pipe(
+        map(x => x?.data)
+      );
+    }
 
-    return from(trx.then(x => x.readValue(id).then(val => {
-      if (val === undefined) return undefined;
-      if (maxAge) {
+    return from(this.readItem(id)).pipe(
+      map(val => {
+        if (val === undefined) return undefined;
         const age = Date.now() - val.createdAt.getTime();
         if (age > maxAge) return undefined;
-      }
-      return val.data;
-    })));
+        return val.data;
+      })
+    );
+  }
+
+  /**
+   * Read a value from the cache
+   * @param id
+   */
+  async readItem(id: string): Promise<CacheItemData<TChunk>|undefined> {
+    const trx = this.context.startTransaction(true);
+
+    return trx.then(x => x.readValue(id));
   }
 }

@@ -11,10 +11,12 @@ export interface CacheAdapter {
 
   deleteDatabase(id: string): Promise<boolean>;
 
-  startTransaction(databaseId: string, chunkId: string): Promise<CacheTransactionAdapter>;
+  startTransaction(databaseId: string, chunkId: string, readonly: boolean): Promise<CacheTransactionAdapter>;
 }
 
 export interface CacheTransactionAdapter {
+
+  get readonly(): boolean;
 
   getChunkVersion(): Promise<number | undefined>;
 

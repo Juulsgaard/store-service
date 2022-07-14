@@ -1,11 +1,18 @@
 import {IStoreConfigService} from "../models/store-config-service";
-import {of} from "rxjs";
+import {firstValueFrom, of} from "rxjs";
 import {CacheStoreService} from "../cache-store-service";
 import {IndexedDbAdapter} from "../caching/adapters/indexed-db-adapter";
 import {BaseReducers} from "../collections/reducers";
+import 'fake-indexeddb/auto';
+import {sleep} from "@consensus-labs/ts-tools";
+
+interface Value {
+  id: string;
+  value: string;
+}
 
 interface State {
-  strings: string[];
+  values: Value[];
 }
 
 class StoreConfig implements IStoreConfigService {
@@ -22,25 +29,52 @@ class StoreConfig implements IStoreConfigService {
 
 class TestService extends CacheStoreService<State> {
   constructor() {
-    super({strings: []}, 'default', new StoreConfig(), new IndexedDbAdapter());
+    super({values: []}, 'default', new StoreConfig(), new IndexedDbAdapter());
   }
 
-  addStr = this.command()
-    .withAction((str: string) => of(str))
-    .targetList('strings')
+  add = this.command()
+    .withPayload<Value>()
+    .targetList('values')
     .withReducer(BaseReducers.addition());
 
+  update = this.command()
+    .withPayload<Value>()
+    .targetList('values')
+    .withReducer(BaseReducers.updateById());
+
+  remove = this.command()
+    .withPayload<string>()
+    .targetList('values')
+    .withReducer(BaseReducers.deleteById());
+
   cached = this.cache('test', 1)
-    .withChunks(x => x.strings)
-    .withId(x => x);
+    .withChunks(x => x.values)
+    .withId(x => x.id);
 }
 
 const store = new TestService();
 
-test('Cache', () => {
-  expect(store.state.strings.length).toEqual(0);
-  store.addStr.emit('First');
-  expect(store.state.strings.length).toEqual(1);
-  store.addStr.observe('Second');
-  expect(store.state.strings.length).toEqual(2);
+test('Cache', async () => {
+
+  store.add.emit({id: 'first', value: 'Test'});
+  store.add.emit({id: 'second', value: 'Hello'});
+
+  await sleep(1000);
+  const secondValue = await store.cached.readItem('second');
+  expect(secondValue?.data.value).toEqual('Hello');
+
+  const firstValue = await store.cached.readItem('first');
+  expect(firstValue?.data.value).toEqual('Test');
+
+
+
+  store.remove.emit('first');
+  store.update.emit({id: 'second', value: 'NewVal'});
+
+  await sleep(1000);
+  const removed = await store.cached.readItem('first');
+  expect(removed).toBeUndefined();
+
+  const updated = await store.cached.readItem('second');
+  expect(updated?.data.value).toEqual('NewVal');
 })

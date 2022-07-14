@@ -36,7 +36,9 @@ export class CacheChunkContext<TChunk> {
   private async _init(version: number) {
     await this.database.init();
 
-    const transaction = await this.startTransaction();
+    const transaction = new CacheChunkTransaction<TChunk>(
+      await this.adapter.startTransaction(this.databaseId, this.chunkId, false)
+    );
 
     try {
       await transaction.initChunk(version);
@@ -46,8 +48,13 @@ export class CacheChunkContext<TChunk> {
     }
   }
 
-  async startTransaction() {
-    return new CacheChunkTransaction<TChunk>(await this.adapter.startTransaction(this.databaseId, this.chunkId));
+  async startTransaction(readonly: boolean) {
+    if (!this.initialising) throw Error('Chunk has not been initialised');
+    await this.initialising;
+
+    return new CacheChunkTransaction<TChunk>(
+      await this.adapter.startTransaction(this.databaseId, this.chunkId, readonly)
+    );
   }
 
 }
