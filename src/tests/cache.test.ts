@@ -1,10 +1,10 @@
 import {IStoreConfigService} from "../models/store-config-service";
-import {firstValueFrom, of} from "rxjs";
 import {CacheStoreService} from "../cache-store-service";
 import {IndexedDbAdapter} from "../caching/adapters/indexed-db-adapter";
 import {BaseReducers} from "../collections/reducers";
 import 'fake-indexeddb/auto';
 import {sleep} from "@consensus-labs/ts-tools";
+import {CacheDatabaseContext} from "../caching/caching-interface";
 
 interface Value {
   id: string;
@@ -29,7 +29,7 @@ class StoreConfig implements IStoreConfigService {
 
 class TestService extends CacheStoreService<State> {
   constructor() {
-    super({values: []}, 'default', new StoreConfig(), new IndexedDbAdapter());
+    super({values: []}, new StoreConfig(), new CacheDatabaseContext(new IndexedDbAdapter(), 'database'));
   }
 
   add = this.command()
@@ -47,9 +47,23 @@ class TestService extends CacheStoreService<State> {
     .targetList('values')
     .withReducer(BaseReducers.deleteById());
 
+  // Define the cache
   cached = this.cache('test', 1)
     .withChunks(x => x.values)
     .withId(x => x.id);
+
+  // Command for loading entire cache
+  load = this.cacheCommand(this.cached)
+    .fromAll()
+    .withReducer(values => ({values}))
+    .noFallback();
+
+  // Command for loading single cache value
+  loadVal = this.cacheCommand(this.cached)
+    .fromSingle()
+    .targetList('values')
+    .withReducer(BaseReducers.setById())
+    .noFallback();
 }
 
 const store = new TestService();
@@ -78,4 +92,18 @@ test('Cache', async () => {
 
   const updated = await store.cached.readItem('second');
   expect(updated?.data.value).toEqual('NewVal');
+})
+
+test('Load', async () => {
+
+  store.add.emit({id: 'first', value: 'Test'});
+  store.add.emit({id: 'second', value: 'Hello'});
+
+  await sleep(1000);
+  store.reset();
+  expect(store.state.values.length).toEqual(0);
+
+  await store.load.emitAsync();
+
+  expect(store.state.values.length).toEqual(2);
 })

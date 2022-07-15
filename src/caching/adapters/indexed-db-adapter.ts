@@ -51,13 +51,13 @@ export class IndexedDbAdapter implements CacheAdapter {
     });
   }
 
-  startTransaction(databaseId: string, chunkId: string, readonly: boolean): Promise<CacheTransactionAdapter> {
+  startTransaction(databaseId: string, readonly: boolean): Promise<CacheTransactionAdapter> {
     const promise = this.databases.get(databaseId);
     if (!promise) throw Error("Database has not been created");
 
     return promise.then(db => {
       const transaction = db.transaction(['versions', 'chunks'], readonly ? 'readonly' : 'readwrite');
-      return new IndexedDbTransactionAdapter(transaction, chunkId, readonly);
+      return new IndexedDbTransactionAdapter(transaction, readonly);
     });
   }
 
@@ -65,42 +65,42 @@ export class IndexedDbAdapter implements CacheAdapter {
 
 class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
 
-  constructor(private transaction: IDBTransaction, public readonly chunkId: string, public readonly readonly: boolean) {
+  constructor(private transaction: IDBTransaction, public readonly readonly: boolean) {
   }
 
-  private getValueKey(id: string) {
-    return `${this.chunkId}_${id}`;
+  private getValueKey(chunkId: string, id: string) {
+    return `${chunkId}_${id}`;
   }
 
-  getChunkVersion(): Promise<number | undefined> {
+  getChunkVersion(chunkId: string): Promise<number | undefined> {
     return new Promise((resolve, reject) => {
-      const request = this.transaction.objectStore('versions').get(this.chunkId) as IDBRequest<VersionData|undefined>;
+      const request = this.transaction.objectStore('versions').get(chunkId) as IDBRequest<VersionData|undefined>;
       request.onsuccess = () => resolve(request.result?.version);
       request.onerror = err => reject(err)
     });
   }
 
-  createChunk(version: number): Promise<boolean> {
+  createChunk(chunkId: string, version: number): Promise<boolean> {
     if (this.readonly) throw Error(`Can't create chunks in read mode`);
 
     return new Promise((resolve, reject) => {
       const request = this.transaction.objectStore('versions')
-        .put({version, chunkId: this.chunkId} as VersionData);
+        .put({version, chunkId: chunkId} as VersionData);
 
       request.onsuccess = () => resolve(true);
       request.onerror = err => reject(err)
     });
   }
 
-  deleteChunk(): Promise<boolean> {
+  deleteChunk(chunkId: string): Promise<boolean> {
     if (this.readonly) throw Error(`Can't delete chunks in read mode`);
 
     return new Promise((resolve, reject) => {
-      const request = this.transaction.objectStore('versions').delete(this.chunkId);
+      const request = this.transaction.objectStore('versions').delete(chunkId);
 
       request.onerror = err => reject(err)
       request.onsuccess = () => {
-        const request = this.transaction.objectStore('chunks').index('chunkId').openCursor(this.chunkId);
+        const request = this.transaction.objectStore('chunks').index('chunkId').openCursor(chunkId);
 
         request.onerror = err => reject(err)
         request.onsuccess = () => {
@@ -114,9 +114,9 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
   }
 
 
-  readValue<TData>(id: string): Promise<CacheItemData<TData> | undefined> {
+  readValue<TData>(chunkId: string, id: string): Promise<CacheItemData<TData> | undefined> {
     return new Promise((resolve, reject) => {
-      const request = this.transaction.objectStore('chunks').get(this.getValueKey(id)) as IDBRequest<ValueData<TData>|undefined>;
+      const request = this.transaction.objectStore('chunks').get(this.getValueKey(chunkId, id)) as IDBRequest<ValueData<TData>|undefined>;
 
       request.onerror = err => reject(err)
       request.onsuccess = () => {
@@ -127,9 +127,9 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
     });
   }
 
-  readAllValues<TData>(): Promise<CacheItemData<TData>[]> {
+  readAllValues<TData>(chunkId: string): Promise<CacheItemData<TData>[]> {
     return new Promise((resolve, reject) => {
-      const request = this.transaction.objectStore('chunks').index('chunkId').getAll(this.chunkId) as IDBRequest<ValueData<TData>[]>;
+      const request = this.transaction.objectStore('chunks').index('chunkId').getAll(chunkId) as IDBRequest<ValueData<TData>[]>;
 
       request.onerror = err => reject(err)
       request.onsuccess = () => {
@@ -139,14 +139,14 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
     });
   }
 
-  addValue<TData>(id: string, data: TData): Promise<void> {
+  addValue<TData>(chunkId: string, id: string, data: TData): Promise<void> {
     if (this.readonly) throw Error(`Can't write values in read mode`);
 
     return new Promise((resolve, reject) => {
       const now = new Date();
       const request = this.transaction.objectStore('chunks').put(
-        {chunkId: this.chunkId, valueId: id, createdAt: now, updatedAt: now, data} as ValueData<TData>,
-        this.getValueKey(id)
+        {chunkId: chunkId, valueId: id, createdAt: now, updatedAt: now, data} as ValueData<TData>,
+        this.getValueKey(chunkId, id)
       );
 
       request.onerror = err => reject(err)
@@ -154,22 +154,22 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
     });
   }
 
-  deleteValue(id: string): Promise<void> {
+  deleteValue(chunkId: string, id: string): Promise<void> {
     if (this.readonly) throw Error(`Can't delete values in read mode`);
 
     return new Promise((resolve, reject) => {
-      const request = this.transaction.objectStore('chunks').delete(this.getValueKey(id));
+      const request = this.transaction.objectStore('chunks').delete(this.getValueKey(chunkId, id));
 
       request.onerror = err => reject(err)
       request.onsuccess = () => resolve();
     });
   }
 
-  updateValue<TData>(id: string, data: TData): Promise<void> {
+  updateValue<TData>(chunkId: string, id: string, data: TData): Promise<void> {
     if (this.readonly) throw Error(`Can't update values in read mode`);
 
     return new Promise((resolve, reject) => {
-      const request = this.transaction.objectStore('chunks').openCursor(this.getValueKey(id));
+      const request = this.transaction.objectStore('chunks').openCursor(this.getValueKey(chunkId, id));
 
       request.onerror = err => reject(err)
       request.onsuccess = () => {

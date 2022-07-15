@@ -3,6 +3,7 @@ import {catchError, concatMap, filter, map, pairwise} from "rxjs/operators";
 import {arrToMap} from "@consensus-labs/ts-tools";
 import {CacheChunkContext} from "./caching-interface";
 import {CacheItemData} from "./caching-adapter";
+import {CacheLoadOptions} from "../commands/cache-command";
 
 interface Changes<TChunk> {
   added: { id: string, data: TChunk }[];
@@ -30,6 +31,7 @@ export class CacheChunk<TChunk> {
 
   private reset() {
     this.ignoreValueChange.clear();
+    this.context.reset();
   }
 
   private mapChanges(oldMap: Map<string, TChunk>, newMap: Map<string, TChunk>): Changes<TChunk> {
@@ -66,10 +68,8 @@ export class CacheChunk<TChunk> {
   }
 
   private async applyChanges(changes: Changes<TChunk>) {
-    const trx = await this.context.startTransaction(false);
 
-    try {
-
+    await this.context.useTransaction(async trx => {
       for (let {id, data} of changes.added) {
         await trx.addValue(id, data);
       }
@@ -83,23 +83,21 @@ export class CacheChunk<TChunk> {
       }
 
       await trx.commit();
-    } finally {
-      await trx.dispose();
-    }
+    }, false);
   }
 
   /**
    * Load an item and mark is as loaded
    * Should only be used to populate a store
    * @param id
-   * @param maxAge
+   * @param options
    */
-  loadItem(id: string, maxAge?: number): Observable<TChunk | undefined> {
+  loadItem(id: string, options?: CacheLoadOptions): Observable<TChunk | undefined> {
     // Ignore the next time this value is updated in the store
     // This is to skip the change resulting from this cache load
     this.ignoreValueChange.add(id);
 
-    if (!maxAge) {
+    if (!options?.maxAge) {
       return from(this.readItem(id)).pipe(
         map(x => x?.data)
       );
@@ -108,8 +106,8 @@ export class CacheChunk<TChunk> {
     return from(this.readItem(id)).pipe(
       map(val => {
         if (val === undefined) return undefined;
-        const age = Date.now() - val.createdAt.getTime();
-        if (age > maxAge) return undefined;
+        const age = Date.now() - (options?.absoluteAge ? val.createdAt : val.updatedAt).getTime();
+        if (age > options.maxAge!) return undefined;
         return val.data;
       })
     );
@@ -118,18 +116,18 @@ export class CacheChunk<TChunk> {
   /**
    * Load all items and mark them as loaded
    * Should only be used to populate a store
-   * @param maxAge
+   * @param options
    */
-  loadAll(maxAge?: number): Observable<TChunk[] | undefined> {
+  loadAll(options?: CacheLoadOptions): Observable<TChunk[] | undefined> {
     let values$: Observable<CacheItemData<TChunk>[] | undefined>;
 
-    if (maxAge) {
+    if (options?.maxAge) {
       values$ = from(this.readAll()).pipe(
         map(list => {
 
           // Get oldest date
           const oldest = list.reduce((state: number, x: CacheItemData<TChunk>) => {
-              const time = x.createdAt.getTime();
+              const time = (options.absoluteAge ? x.createdAt : x.updatedAt).getTime();
               if (time < state) return time;
               return state;
             },
@@ -138,7 +136,7 @@ export class CacheChunk<TChunk> {
 
           if (!oldest) return list;
           const age = Date.now() - oldest;
-          if (age > maxAge) return undefined;
+          if (age > options.maxAge!) return undefined;
           return list;
         })
       );
@@ -157,17 +155,13 @@ export class CacheChunk<TChunk> {
    * @param id
    */
   async readItem(id: string): Promise<CacheItemData<TChunk> | undefined> {
-    const trx = this.context.startTransaction(true);
-
-    return trx.then(x => x.readValue(id));
+    return await this.context.useTransaction(trx => trx.readValue(id), true);
   }
 
   /**
    * Read all values from the cache
    */
   async readAll(): Promise<CacheItemData<TChunk>[]> {
-    const trx = this.context.startTransaction(true);
-
-    return trx.then(x => x.readAllValues());
+    return this.context.useTransaction(trx => trx.readAllValues(), true);
   }
 }

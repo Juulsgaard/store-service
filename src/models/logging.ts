@@ -23,3 +23,14 @@ export function logFailedAction(name: string, startedAt: number | undefined, pay
   if ((error as {correlationId?: string}).correlationId) console.log('%cCorrelation Id: ', style, (error as {correlationId?: string}).correlationId);
   console.groupEnd();
 }
+
+export function logActionInformation(name: string, info: string, startedAt: number | undefined, payload: any) {
+  const time = startedAt && Date.now() - startedAt;
+  const style = 'font-weight: bold; color: dodgerblue';
+
+  console.groupCollapsed(`%c${name}`, style);
+  console.log('%cMessage: ', style, info);
+  console.log('%cPayload: ', style, payload);
+  if (time) console.log('%cTime: ', style, time < 1000 ? '< 1s' : `${time / 1000}s`);
+  console.groupEnd();
+}

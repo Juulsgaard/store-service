@@ -208,10 +208,11 @@ export class LoadingState<TData> implements ILoadingState {
 
   /**
    * Define a callback that will be executed on a successful action
-   * @param func
+   * @param next
+   * @param error
    */
-  then(func: (data: TData) => void): this {
-    this.result$.subscribe(func);
+  then(next: (data: TData) => void, error?: (error: Error) => void): this {
+    this.result$.subscribe({next, error});
     return this;
   }
 

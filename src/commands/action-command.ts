@@ -26,6 +26,8 @@ export interface ActionCommandOptions<TPayload, TData> {
  */
 export class ActionCommand<TState, TPayload, TData> extends StoreCommand<TState> {
 
+  get initialLoad() {return this.options.initialLoad}
+
   constructor(
     context: StoreServiceContext<TState>,
     private readonly options: ActionCommandOptions<TPayload, TData>,

@@ -56,7 +56,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
    * A context object that allows commands to interact with the store
    * @private
    */
-  private context: StoreServiceContext<TState> = {
+  protected context: StoreServiceContext<TState> = {
     getCommandName: cmd => this.getCommandName(cmd),
     applyCommand: reducer$ => this.reducerQueue$.next(reducer$),
     getLoadState: (cmd: StoreCommand<TState>) => this.getLoadState$(cmd).value,

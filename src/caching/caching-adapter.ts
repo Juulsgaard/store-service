@@ -12,29 +12,29 @@ export interface CacheAdapter {
 
   deleteDatabase(id: string): Promise<boolean>;
 
-  startTransaction(databaseId: string, chunkId: string, readonly: boolean): Promise<CacheTransactionAdapter>;
+  startTransaction(databaseId: string, readonly: boolean): Promise<CacheTransactionAdapter>;
 }
 
 export interface CacheTransactionAdapter {
 
   get readonly(): boolean;
 
-  getChunkVersion(): Promise<number | undefined>;
+  getChunkVersion(chunkId: string): Promise<number | undefined>;
 
-  createChunk(version: number): Promise<boolean>;
+  createChunk(chunkId: string, version: number): Promise<boolean>;
 
-  deleteChunk(): Promise<boolean>;
+  deleteChunk(chunkId: string): Promise<boolean>;
 
 
-  addValue<TData>(id: string, data: TData): Promise<void>;
+  addValue<TData>(chunkId: string, id: string, data: TData): Promise<void>;
 
-  updateValue<TData>(id: string, data: TData): Promise<void>;
+  updateValue<TData>(chunkId: string, id: string, data: TData): Promise<void>;
 
-  deleteValue(id: string): Promise<void>;
+  deleteValue(chunkId: string, id: string): Promise<void>;
 
-  readValue<TData>(id: string): Promise<CacheItemData<TData> | undefined>;
+  readValue<TData>(chunkId: string, id: string): Promise<CacheItemData<TData> | undefined>;
 
-  readAllValues<TData>(): Promise<CacheItemData<TData>[]>;
+  readAllValues<TData>(chunkId: string): Promise<CacheItemData<TData>[]>;
 
   commit(): Promise<void>;
   revert(): Promise<void>;

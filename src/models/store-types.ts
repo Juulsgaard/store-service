@@ -1,6 +1,9 @@
 import {Observable} from "rxjs";
 import {map} from "rxjs/operators";
 import {StoreServiceContext} from "../configs/command-config";
+import {PlainCommand} from "../commands/plain-command";
+import {ActionCommand} from "../commands/action-command";
+import {DeferredCommand} from "../commands/deferred-command";
 
 /**
  * The signature for a Command Action
@@ -51,3 +54,6 @@ export abstract class StoreCommand<TState> {
   };
 
 }
+
+export type ActionCommandUnion<TState, TPayload, TData> = ActionCommand<TState, TPayload, TData>|DeferredCommand<TState, TPayload, TData>;
+export type StoreCommandUnion<TState, TPayload, TData = any> = PlainCommand<TState, TPayload>|ActionCommandUnion<TState, TPayload, TData>;
