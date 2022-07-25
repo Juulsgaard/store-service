@@ -38,6 +38,7 @@ export class IndexedDbAdapter implements CacheAdapter {
     cacheStore.createIndex('valueId', 'valueId');
     cacheStore.createIndex('createdAt', 'createdAt');
     cacheStore.createIndex('updatedAt', 'updatedAt');
+    cacheStore.createIndex('tags', 'tags', {multiEntry: true});
   }
 
   deleteDatabase(id: string): Promise<boolean> {
@@ -74,7 +75,7 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
 
   getChunkVersion(chunkId: string): Promise<number | undefined> {
     return new Promise((resolve, reject) => {
-      const request = this.transaction.objectStore('versions').get(chunkId) as IDBRequest<VersionData|undefined>;
+      const request = this.transaction.objectStore('versions').get(chunkId) as IDBRequest<VersionData | undefined>;
       request.onsuccess = () => resolve(request.result?.version);
       request.onerror = err => reject(err)
     });
@@ -116,7 +117,7 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
 
   readValue<TData>(chunkId: string, id: string): Promise<CacheItemData<TData> | undefined> {
     return new Promise((resolve, reject) => {
-      const request = this.transaction.objectStore('chunks').get(this.getValueKey(chunkId, id)) as IDBRequest<ValueData<TData>|undefined>;
+      const request = this.transaction.objectStore('chunks').get(this.getValueKey(chunkId, id)) as IDBRequest<ValueData<TData> | undefined>;
 
       request.onerror = err => reject(err)
       request.onsuccess = () => {
@@ -134,18 +135,29 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
       request.onerror = err => reject(err)
       request.onsuccess = () => {
         const list = request.result;
-        resolve(list.map(data => ({createdAt: data.createdAt, updatedAt: data.updatedAt, data: data.data, id: data.valueId})));
+        resolve(list.map(data => ({
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+          data: data.data,
+          id: data.valueId
+        })));
       };
     });
   }
 
-  addValue<TData>(chunkId: string, id: string, data: TData): Promise<void> {
+  addValue<TData>(chunkId: string, id: string, data: TData, tags: string[]): Promise<void> {
     if (this.readonly) throw Error(`Can't write values in read mode`);
 
     return new Promise((resolve, reject) => {
       const now = new Date();
-      const request = this.transaction.objectStore('chunks').put(
-        {chunkId: chunkId, valueId: id, createdAt: now, updatedAt: now, data} as ValueData<TData>,
+      const request = this.transaction.objectStore('chunks').put({
+          chunkId: chunkId,
+          valueId: id,
+          createdAt: now,
+          updatedAt: now,
+          data,
+          tags
+        } as ValueData<TData>,
         this.getValueKey(chunkId, id)
       );
 
@@ -162,6 +174,27 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
 
       request.onerror = err => reject(err)
       request.onsuccess = () => resolve();
+    });
+  }
+
+  deleteTag(chunkId: string, tag: string): Promise<void> {
+    if (this.readonly) throw Error(`Can't delete chunks in read mode`);
+
+    return new Promise((resolve, reject) => {
+      const request = this.transaction.objectStore('versions').delete(chunkId);
+
+      request.onerror = err => reject(err)
+      request.onsuccess = () => {
+        const request = this.transaction.objectStore('chunks').index('tags').openCursor(IDBKeyRange.only(tag));
+
+        request.onerror = err => reject(err)
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) return resolve();
+          cursor.delete();
+          cursor.continue();
+        }
+      };
     });
   }
 
@@ -186,7 +219,39 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
           chunkId: oldVal.chunkId,
           createdAt: oldVal.createdAt,
           updatedAt: new Date(),
-          data: data
+          data: data,
+          tags: oldVal.tags,
+        } as ValueData<TData>);
+
+        update.onerror = err => reject(err)
+        update.onsuccess = () => resolve();
+      };
+    });
+  }
+
+  updateValueAge<TData>(chunkId: string, id: string, newAge: Date): Promise<void> {
+    if (this.readonly) throw Error(`Can't update values in read mode`);
+
+    return new Promise((resolve, reject) => {
+      const request = this.transaction.objectStore('chunks').openCursor(this.getValueKey(chunkId, id));
+
+      request.onerror = err => reject(err)
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) {
+          reject(Error("Element does not exist in cache"));
+          return;
+        }
+
+        const oldVal = cursor.value as ValueData<TData>;
+
+        const update = cursor.update({
+          valueId: oldVal.valueId,
+          chunkId: oldVal.chunkId,
+          createdAt: newAge,
+          updatedAt: newAge,
+          data: oldVal.data,
+          tags: oldVal.tags,
         } as ValueData<TData>);
 
         update.onerror = err => reject(err)
@@ -222,4 +287,5 @@ interface ValueData<T> {
   createdAt: Date;
   updatedAt: Date;
   data: T;
+  tags: string[];
 }

@@ -39,7 +39,7 @@ class CacheChunkConfig<TChunk> {
   constructor(private context: CacheChunkContext<TChunk>, private chunks$: Observable<Observable<TChunk[]>>) {
   }
 
-  withId(getId: (chunk: TChunk) => string): CacheChunk<TChunk> {
-    return new CacheChunk<TChunk>(this.chunks$, this.context, getId);
+  withId(getId: (chunk: TChunk) => string, getTags?: (chunk: TChunk) => string[]): CacheChunk<TChunk> {
+    return new CacheChunk<TChunk>(this.chunks$, this.context, getId, getTags);
   }
 }

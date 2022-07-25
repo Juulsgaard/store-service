@@ -1,4 +1,4 @@
-import {distinctUntilChanged, EMPTY, from, Observable, switchMap, tap} from "rxjs";
+import {concat, distinctUntilChanged, EMPTY, from, Observable, Subject, Subscription, switchMap, tap} from "rxjs";
 import {catchError, concatMap, filter, map, pairwise} from "rxjs/operators";
 import {arrToMap} from "@consensus-labs/ts-tools";
 import {CacheChunkContext} from "./caching-interface";
@@ -6,32 +6,57 @@ import {CacheItemData} from "./caching-adapter";
 import {CacheLoadOptions} from "../commands/cache-command";
 
 interface Changes<TChunk> {
-  added: { id: string, data: TChunk }[];
-  updated: { id: string, data: TChunk }[];
-  removed: { id: string }[];
+  added?: { id: string, data: TChunk }[];
+  updated?: { id: string, data: TChunk }[];
+  removed?: { id: string }[];
+  removedTags?: { id: string }[];
+  ageChanged?: { id: string, newAge: Date }[];
 }
 
 export class CacheChunk<TChunk> {
+
   private ignoreValueChange = new Set<string>();
 
-  constructor(private chunks$: Observable<Observable<TChunk[]>>, private context: CacheChunkContext<TChunk>, private getId: (chunk: TChunk) => string) {
+  private stateChanges$ = new Subject<Changes<TChunk>>();
+  private manualChanges$ = new Subject<Changes<TChunk>>();
+  private changeSub?: Subscription;
+
+  constructor(
+    private chunks$: Observable<Observable<TChunk[]>>,
+    private context: CacheChunkContext<TChunk>,
+    private getId: (chunk: TChunk) => string,
+    private getTags?: (chunk: TChunk) => string[]
+  ) {
     this.chunks$.pipe(
+      // Reset every time a new state observable is emitted
       tap(() => this.reset()),
       switchMap(state$ => state$.pipe(
         distinctUntilChanged(),
+        // Split the chunks based on ID
         map(x => arrToMap(x, getId)),
+        // Get 2 consecutive states at a time
         pairwise(),
+        // Find changes between the 2 states
         map(([oldMap, newMap]) => this.mapChanges(oldMap, newMap)),
-        filter(x => !!x.added.length || !!x.updated.length || !!x.removed.length),
-        concatMap(x => from(this.applyChanges(x))),
+        // Ignore errors
         catchError(() => EMPTY)
       ))
-    ).subscribe();
+    ).subscribe(this.stateChanges$);
   }
 
   private reset() {
     this.ignoreValueChange.clear();
     this.context.reset();
+
+    this.changeSub?.unsubscribe();
+    this.changeSub = concat(this.stateChanges$, this.manualChanges$).pipe(
+      // Skip if no changes are found
+      filter(x => !!x.added?.length || !!x.updated?.length || !!x.removed?.length || !!x.ageChanged?.length),
+      // Save the changes to cache
+      concatMap(x => from(this.applyChanges(x))),
+      // Ignore errors
+      catchError(() => EMPTY)
+    ).subscribe()
   }
 
   private mapChanges(oldMap: Map<string, TChunk>, newMap: Map<string, TChunk>): Changes<TChunk> {
@@ -47,20 +72,20 @@ export class CacheChunk<TChunk> {
       const newValue = newMap.get(id);
 
       if (!newValue) {
-        changes.removed.push({id});
+        changes.removed!.push({id});
         continue;
       }
 
       if (oldValue === newValue) continue;
       if (this.ignoreValueChange.has(id)) continue;
 
-      changes.updated.push({id, data: newValue});
+      changes.updated!.push({id, data: newValue});
     }
 
     for (let [id, newValue] of newMap) {
       if (oldMap.has(id)) continue;
       if (this.ignoreValueChange.has(id)) continue;
-      changes.added.push({id, data: newValue});
+      changes.added!.push({id, data: newValue});
     }
 
     this.ignoreValueChange.clear();
@@ -70,22 +95,31 @@ export class CacheChunk<TChunk> {
   private async applyChanges(changes: Changes<TChunk>) {
 
     await this.context.useTransaction(async trx => {
-      for (let {id, data} of changes.added) {
-        await trx.addValue(id, data);
+      for (let {id, data} of changes?.added ?? []) {
+        await trx.addValue(id, data, this.getTags?.(data));
       }
 
-      for (let {id, data} of changes.updated) {
+      for (let {id, data} of changes?.updated ?? []) {
         await trx.updateValue(id, data);
       }
 
-      for (let {id} of changes.removed) {
+      for (let {id, newAge} of changes?.ageChanged ?? []) {
+        await trx.updateValueAge(id, newAge);
+      }
+
+      for (let {id} of changes?.removed ?? []) {
         await trx.deleteValue(id);
+      }
+
+      for (let {id} of changes?.removedTags ?? []) {
+        await trx.deleteTag(id);
       }
 
       await trx.commit();
     }, false);
   }
 
+  //<editor-fold desc="Data Load">
   /**
    * Load an item and mark is as loaded
    * Should only be used to populate a store
@@ -163,5 +197,15 @@ export class CacheChunk<TChunk> {
    */
   async readAll(): Promise<CacheItemData<TChunk>[]> {
     return this.context.useTransaction(trx => trx.readAllValues(), true);
+  }
+
+  //</editor-fold>
+
+  resetItemAge(id: string) {
+    this.manualChanges$.next({ageChanged: [{id, newAge: new Date()}]});
+  }
+
+  clearTag(tag: string) {
+    this.manualChanges$.next({removedTags: [{id: tag}]});
   }
 }

@@ -4,6 +4,10 @@ import {QueueAction} from "../models/queue-action";
 
 export class PlainCommand<TState, TData> extends StoreCommand<TState> {
 
+  get initialLoad() {
+    return false;
+  }
+
   constructor(
     context: StoreServiceContext<TState>,
     private readonly reducer: (state: TState, data: TData) => TState

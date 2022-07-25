@@ -29,6 +29,8 @@ export type ObjectReducer<TState extends Record<string, any>, TData> = (data: TD
  */
 export abstract class StoreCommand<TState> {
 
+  abstract get initialLoad(): boolean;
+
   /**
    * Indicates if any command of this type are currently executing
    */

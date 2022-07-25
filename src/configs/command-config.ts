@@ -18,13 +18,15 @@ export interface StoreServiceContext<TState> {
 
   displayError(message: string|undefined, error: Error): void;
 
-  getLoadState(cmd: StoreCommand<TState>): number | undefined;
+  getLoadState(cmd: StoreCommand<TState>, requestId?: string): number | undefined;
 
-  getLoadState$(cmd: StoreCommand<TState>): Observable<number | undefined>;
+  getLoadState$(cmd: StoreCommand<TState>, requestId?: string): Observable<number | undefined>;
 
-  startLoad(cmd: StoreCommand<TState>): void;
+  startLoad(cmd: StoreCommand<TState>, requestId?: string): void;
 
-  endLoad(cmd: StoreCommand<TState>): void;
+  endLoad(cmd: StoreCommand<TState>, requestId?: string): void;
+
+  failLoad(cmd: StoreCommand<TState>, requestId?: string): void;
 
   isProduction: boolean;
 }

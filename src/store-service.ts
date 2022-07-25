@@ -1,8 +1,8 @@
-import {BehaviorSubject, concatMap, distinctUntilChanged, EMPTY, Observable, shareReplay, Subject, Subscription} from "rxjs";
+import {BehaviorSubject, concatMap, distinctUntilChanged, EMPTY, isObservable, Observable, shareReplay, Subject, Subscription} from "rxjs";
 import {StoreClientCommandConfig, StoreCommandConfig, StoreServiceContext} from "./configs/command-config";
 import {Reducer, StoreCommand} from "./models/store-types";
 import {IStoreConfigService} from "./models/store-config-service";
-import {catchError} from "rxjs/operators";
+import {catchError, map} from "rxjs/operators";
 import {ActionCommand} from "./commands/action-command";
 import {arrToMap, deepCopy, deepFreeze, slugify, titleCase} from "@consensus-labs/ts-tools";
 import {QueueAction} from "./models/queue-action";
@@ -53,18 +53,34 @@ export abstract class StoreService<TState extends Record<string, any>> {
   private loadStates = new Map<StoreCommand<TState>, BehaviorSubject<number | undefined>>();
 
   /**
+   * The current loading state of all commands grouped on RequestId
+   * @private
+   */
+  private requestLoadStates = new Map<StoreCommand<TState>, Map<string, BehaviorSubject<number | undefined>>>();
+
+  /**
    * A context object that allows commands to interact with the store
    * @private
    */
   protected context: StoreServiceContext<TState> = {
     getCommandName: cmd => this.getCommandName(cmd),
     applyCommand: reducer$ => this.reducerQueue$.next(reducer$),
-    getLoadState: (cmd: StoreCommand<TState>) => this.getLoadState$(cmd).value,
-    getLoadState$: (cmd: StoreCommand<TState>) => this.getLoadState$(cmd).asObservable(),
+    getLoadState: (cmd: StoreCommand<TState>, requestId?: string) => this.getLoadState$(cmd, requestId).value,
+    getLoadState$: (cmd: StoreCommand<TState>, requestId?: string) => this.getLoadState$(cmd, requestId).asObservable(),
     displayError: (msg, error) => this.configService.displayError(msg, error),
     displaySuccess: (message: string) => this.configService.displaySuccess(message),
-    startLoad: (cmd: StoreCommand<TState>) => this.startLoad(cmd),
-    endLoad: (cmd: StoreCommand<TState>) => this.endLoad(cmd),
+    startLoad: (cmd: StoreCommand<TState>, requestId?: string) => {
+      this.startLoad(cmd);
+      if (requestId) this.startLoad(cmd, requestId)
+    },
+    endLoad: (cmd: StoreCommand<TState>, requestId?: string) => {
+      this.endLoad(cmd);
+      if (requestId) this.endLoad(cmd, requestId)
+    },
+    failLoad: (cmd: StoreCommand<TState>, requestId?: string) => {
+      this.failLoad(cmd);
+      if (requestId) this.failLoad(cmd, requestId)
+    },
     isProduction: this.configService.isProduction
   }
 
@@ -187,35 +203,72 @@ export abstract class StoreService<TState extends Record<string, any>> {
   /**
    * Get a subject with the loading state of a Command
    * @param cmd - The command
+   * @param requestId - An optional RequestId
    * @private
    */
-  private getLoadState$(cmd: StoreCommand<TState>) {
-    let sub = this.loadStates.get(cmd);
+  private getLoadState$(cmd: StoreCommand<TState>, requestId?: string) {
+    if (!requestId) {
+      let sub = this.loadStates.get(cmd);
+      if (sub) return sub;
+
+      sub = new BehaviorSubject<number | undefined>(undefined);
+      this.loadStates.set(cmd, sub);
+      return sub;
+    }
+
+    let map = this.requestLoadStates.get(cmd);
+    if (!map) {
+      map = new Map();
+      this.requestLoadStates.set(cmd, map);
+    }
+
+    let sub = map.get(requestId);
     if (sub) return sub;
 
     sub = new BehaviorSubject<number | undefined>(undefined);
-    this.loadStates.set(cmd, sub);
+    map.set(requestId, sub);
     return sub;
   }
 
   /**
    * Mark a command as having started loading
    * @param cmd - The command
+   * @param requestId
    * @private
    */
-  private startLoad(cmd: StoreCommand<TState>) {
-    const sub = this.getLoadState$(cmd);
+  private startLoad(cmd: StoreCommand<TState>, requestId?: string) {
+    const sub = this.getLoadState$(cmd, requestId);
     sub.next((sub.value ?? 0) + 1);
   }
 
   /**
    * Mark a command as having finished loading
    * @param cmd - The command
+   * @param requestId
    * @private
    */
-  private endLoad(cmd: StoreCommand<TState>) {
-    const sub = this.getLoadState$(cmd);
+  private endLoad(cmd: StoreCommand<TState>, requestId?: string) {
+    const sub = this.getLoadState$(cmd, requestId);
     sub.next((sub.value ?? 1) - 1);
+  }
+
+  /**
+   * Mark a command as having finished loading with an error
+   * @param cmd - The command
+   * @param requestId
+   * @private
+   */
+  private failLoad(cmd: StoreCommand<TState>, requestId?: string) {
+    const sub = this.getLoadState$(cmd, requestId);
+    const val = sub.value ?? 1;
+
+    // If initial load fails, set command as unloaded
+    if (cmd.initialLoad && val === 1) {
+      sub.next(undefined);
+      return;
+    }
+
+    sub.next(val - 1);
   }
 
   /**
@@ -269,15 +322,39 @@ export abstract class StoreService<TState extends Record<string, any>> {
   }
 
   /**
-   * Create a selector
+   * Create a selector using RXJS
    * @param pipe - The observable modification for the selector
    * @protected
    */
-  protected selector<TSelect>(pipe: (state$: Observable<TState>) => Observable<TSelect>) {
+  protected selector<TSelect>(pipe: (state$: Observable<TState>) => Observable<TSelect>): Observable<TSelect>
+  /**
+   * Create a selector from an existing observable
+   * @protected
+   * @param observable$
+   */
+  protected selector<TSelect>(observable$: Observable<TSelect>): Observable<TSelect>
+  protected selector<TSelect>(pipe: ((state$: Observable<TState>) => Observable<TSelect>)|Observable<TSelect>): Observable<TSelect> {
+
+    if (isObservable(pipe)) {
+      return pipe.pipe(
+        distinctUntilChanged(),
+        shareReplay({bufferSize: 1, refCount: true})
+      );
+    }
+
     return pipe(this.state$).pipe(
       distinctUntilChanged(),
       shareReplay({bufferSize: 1, refCount: true})
     );
+  }
+
+  /**
+   * Create a basic selector
+   * @protected
+   * @param selector - A method to map the state to the desired shape
+   */
+  protected select<TSelect>(selector: (state: TState) => TSelect) {
+    return this.selector(state$ => state$.pipe(map(selector)))
   }
 }
 

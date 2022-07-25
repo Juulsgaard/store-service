@@ -24,6 +24,10 @@ export interface DeferredCommandOptions<TPayload, TData> {
  */
 export class DeferredCommand<TState, TPayload, TData>  extends StoreCommand<TState> {
 
+  get initialLoad() {
+    return false;
+  }
+
   constructor(
     context: StoreServiceContext<TState>,
     private readonly options: DeferredCommandOptions<TPayload, TData>,
@@ -69,7 +73,9 @@ export class DeferredCommand<TState, TPayload, TData>  extends StoreCommand<TSta
       true
     ));
 
-    state.finally(() => this.context.endLoad(this));
+    state
+      .then(() => this.context.endLoad(this))
+      .catch(() => this.context.failLoad(this));
 
     return state;
   };

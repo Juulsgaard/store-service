@@ -6,6 +6,12 @@ import 'fake-indexeddb/auto';
 import {sleep} from "@consensus-labs/ts-tools";
 import {CacheDatabaseContext} from "../caching/caching-interface";
 
+// noinspection JSConstantReassignment
+global.navigator = {
+  ...global.navigator,
+  onLine: true
+};
+
 interface Value {
   id: string;
   value: string;

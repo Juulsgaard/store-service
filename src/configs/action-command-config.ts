@@ -17,8 +17,9 @@ class ActionCommandOptionConfig<TPayload, TData> {
    * Marks the command as an initial load
    * This command can only be run once
    */
-  isInitial(): this {
+  isInitial(requestId?: (payload: TPayload) => string): this {
     this.options.initialLoad = true;
+    this.options.initialLoadId = requestId;
     return this;
   }
 
@@ -63,6 +64,11 @@ class ActionCommandOptionConfig<TPayload, TData> {
    */
   withQueue(): this {
     this.options.queue = true;
+    return this;
+  }
+
+  withAfterEffect(effect: (data: TData, payload: TPayload) => void): this {
+    this.options.afterEffect = effect;
     return this;
   }
 }

@@ -19,6 +19,7 @@ export interface CacheCommandOptions<TPayload, TData> {
   errorMessage?: string;
   successMessage?: string | ((data: TData, payload: TPayload) => string);
   initialLoad: boolean;
+  initialLoadId?: (payload: TPayload) => string;
 
   /** Use the cache even if online */
   cacheIfOnline: boolean;
@@ -44,6 +45,8 @@ export interface CacheLoadOptions {
  */
 export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends StoreCommand<TState> {
 
+  get initialLoad() {return this.options.initialLoad}
+
   constructor(
     context: StoreServiceContext<TState>,
     private readonly options: CacheCommandOptions<TPayload, TData>,
@@ -56,6 +59,16 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
 
   private valueIsValid(data: TData|undefined): data is TData {
     return data != undefined && !this.options.failCondition?.(data);
+  }
+
+  alreadyLoaded(payload: TPayload): boolean {
+    if (!this.options.initialLoad) return false;
+
+    if (this.options.initialLoadId) {
+      return this.context.getLoadState(this, this.options.initialLoadId(payload)) !== undefined
+    }
+
+    return this.context.getLoadState(this) !== undefined;
   }
 
   /**
@@ -75,22 +88,21 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
 
     //<editor-fold desc="Precondition">
     // Throw error if initial load has already been loaded
-    if (this.options.initialLoad) {
-      if (this.context.getLoadState(this) !== undefined) {
-        return LoadingState.FromError(() => new ActionCommandError('This cache action has already been loaded', cachePayload))
-      }
+    if (this.alreadyLoaded(cachePayload)) {
+      return LoadingState.FromError(() => new ActionCommandError('This cache action has already been loaded', cachePayload));
+    }
 
-      if (this.fallbackCommand) {
-        if (this.fallbackCommand instanceof ActionCommand && this.fallbackCommand.initialLoad) {
-          if (this.context.getLoadState(this.fallbackCommand) !== undefined) {
-            return LoadingState.FromError(() => new ActionCommandError('This cache fallback action has already been loaded', cachePayload))
-          }
-        }
+    // Throw error if initial load has already been loaded for fallback
+    if (this.fallbackCommand && 'alreadyLoaded' in this.fallbackCommand) {
+      if (this.fallbackCommand.alreadyLoaded(cmdPayload)) {
+        return LoadingState.FromError(() => new ActionCommandError('This cache fallback action has already been loaded', cachePayload))
       }
     }
     //</editor-fold>
 
-    this.context.startLoad(this);
+    const requestId = this.options.initialLoad ? this.options.initialLoadId?.(cachePayload) : undefined;
+
+    this.context.startLoad(this, requestId);
 
     //<editor-fold desc="State">
     const sharedState = new Subject<TData|TXData|void>();
@@ -122,8 +134,10 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
     if (online && !this.options.cacheIfOnline) {
       if (this.fallbackCommand) {
         emitFallback();
+        this.context.endLoad(this, requestId)
       } else {
         sharedState.error('Cache disabled online, but missing fallback');
+        this.context.failLoad(this, requestId)
       }
       return sharedLoadingState;
     }
@@ -172,6 +186,9 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
     //<editor-fold desc="Post Cache Fallback logic">
     cacheLoad
       .then(result => {
+
+        this.context.endLoad(this, requestId);
+
         if (this.fallbackCommand) {
           // Activate fallbacks if no cache result, or concurrent fallback is enabled
           if (this.concurrentFallback || !this.valueIsValid(result)) {
@@ -188,8 +205,10 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
         // Default case - Emit cache result
         sharedState.next(result);
       })
-      .catch(err => sharedState.error(err))
-      .finally(() => this.context.endLoad(this));
+      .catch(err => {
+        this.context.failLoad(this, requestId);
+        sharedState.error(err);
+      });
     //</editor-fold>
 
     return sharedLoadingState;

@@ -169,8 +169,8 @@ class CacheTransactionContext<TChunk> {
     return await this.adapter.readAllValues<TChunk>(this.chunkId);
   }
 
-  async addValue(id: string, value: TChunk) {
-    await this.adapter.addValue(this.chunkId, id, value);
+  async addValue(id: string, value: TChunk, tags?: string[]) {
+    await this.adapter.addValue(this.chunkId, id, value, tags ?? []);
     this.changes = true;
   }
 
@@ -179,8 +179,18 @@ class CacheTransactionContext<TChunk> {
     this.changes = true;
   }
 
+  async updateValueAge(id: string, newAge: Date) {
+    await this.adapter.updateValue(this.chunkId, id, newAge);
+    this.changes = true;
+  }
+
   async deleteValue(id: string) {
     await this.adapter.deleteValue(this.chunkId, id);
+    this.changes = true;
+  }
+
+  async deleteTag(tag: string) {
+    await this.adapter.deleteTag(this.chunkId, tag);
     this.changes = true;
   }
 

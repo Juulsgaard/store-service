@@ -14,11 +14,14 @@ import {QueueAction} from "../models/queue-action";
 export interface ActionCommandOptions<TPayload, TData> {
   readonly action: CommandAction<TPayload, TData>;
   initialLoad: boolean;
+  initialLoadId?: (payload: TPayload) => string;
   showError: boolean;
   errorMessage?: string;
   successMessage?: string | ((data: TData, payload: TPayload) => string);
   modify?: (data: TData) => TData | void;
   queue: boolean;
+  /** An effect action that is triggered after a successful command action */
+  afterEffect?: (data: TData, payload: TPayload) => void;
 }
 
 /**
@@ -26,7 +29,9 @@ export interface ActionCommandOptions<TPayload, TData> {
  */
 export class ActionCommand<TState, TPayload, TData> extends StoreCommand<TState> {
 
-  get initialLoad() {return this.options.initialLoad}
+  get initialLoad() {
+    return this.options.initialLoad
+  }
 
   constructor(
     context: StoreServiceContext<TState>,
@@ -36,20 +41,48 @@ export class ActionCommand<TState, TPayload, TData> extends StoreCommand<TState>
     super(context);
   }
 
+  alreadyLoaded(payload: TPayload): boolean {
+    if (!this.options.initialLoad) return false;
+
+    if (this.options.initialLoadId) {
+      return this.context.getLoadState(this, this.options.initialLoadId(payload)) !== undefined
+    }
+
+    return this.context.getLoadState(this) !== undefined;
+  }
+
   /**
    * Dispatch the command and return a LoadingState to monitor command progress
    * @param payload - The command payload
    */
   observe(payload: TPayload): LoadingState<TData> {
+    return this.execute(payload, false);
+  }
+
+  /**
+   * Dispatch the command and return a LoadingState to monitor command progress
+   * Will load initial load commands even if they have already been loaded
+   * @param payload - The command payload
+   */
+  forceObserve(payload: TPayload): LoadingState<TData> {
+    return this.execute(payload, true);
+  }
+
+  /**
+   * Dispatch the command and return a LoadingState to monitor command progress
+   * @param payload - The command payload
+   * @param ignoreInitial - Ignore initial load constraint
+   */
+  private execute(payload: TPayload, ignoreInitial: boolean): LoadingState<TData> {
 
     // Throw error if initial load has already been loaded
-    if (this.options.initialLoad) {
-      if (this.context.getLoadState(this) !== undefined) {
-        return LoadingState.FromError(() => new ActionCommandError('This action has already been loaded', payload))
-      }
+    if (!ignoreInitial && this.alreadyLoaded(payload)) {
+      return LoadingState.FromError(() => new ActionCommandError('This action has already been loaded', payload))
     }
 
-    this.context.startLoad(this);
+    const requestId = this.options.initialLoad ? this.options.initialLoadId?.(payload) : undefined;
+
+    this.context.startLoad(this, requestId);
 
     // Create a delayed loading state
     const loadState = LoadingState.Delayed(() => this.options.action(payload), this.options.modify);
@@ -78,7 +111,12 @@ export class ActionCommand<TState, TPayload, TData> extends StoreCommand<TState>
       this.options.queue
     ));
 
-    loadState.finally(() => this.context.endLoad(this));
+    loadState
+      .then(data => {
+        this.context.endLoad(this, requestId);
+        this.options.afterEffect?.(data, payload);
+      })
+      .catch(() => this.context.failLoad(this, requestId))
 
     return loadState;
   };
@@ -125,7 +163,7 @@ export class ActionCommand<TState, TPayload, TData> extends StoreCommand<TState>
    * @param payload
    */
   emit(payload: TPayload) {
-    this.observe(payload);
+    this.execute(payload, false);
   };
 
   /**
@@ -133,6 +171,6 @@ export class ActionCommand<TState, TPayload, TData> extends StoreCommand<TState>
    * @param payload
    */
   emitAsync(payload: TPayload): Promise<TData> {
-    return this.observe(payload).resultAsync;
+    return this.execute(payload, false).resultAsync;
   };
 }

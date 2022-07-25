@@ -22,7 +22,7 @@ export class CacheCommandConfig<TState extends Record<string, any>, TCache> {
     return new CacheCommandObjectConfig<TState, TState, TPayload, TCache[]>(
       this.context,
       {
-        initialLoad: true,
+        initialLoad: false,
         action: ({options}) => this.cache.loadAll(options),
         failCondition: x => x.length === 0,
         cacheIfOnline: true,
@@ -50,7 +50,7 @@ export class CacheCommandConfig<TState extends Record<string, any>, TCache> {
     return new CacheCommandObjectConfig<TState, TState, any, TCache>(
       this.context,
       {
-        initialLoad: true,
+        initialLoad: false,
         action: ({options, payload}) => this.cache.loadItem(map!(payload), options),
         cacheIfOnline: true,
         fallbackIfOffline: true
@@ -89,10 +89,11 @@ class CacheCommandOptionConfig<TPayload, TData> {
   }
 
   /**
-   * Mark the cache action as not being an initial load
+   * Mark the cache action as being an initial load
    */
-  notInitial(): this {
-    this.options.initialLoad = false;
+  isInitial(requestId?: (payload: TPayload) => string): this {
+    this.options.initialLoad = true;
+    this.options.initialLoadId = requestId;
     return this;
   }
 
