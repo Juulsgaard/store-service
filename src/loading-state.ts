@@ -8,7 +8,7 @@ import {first, map} from "rxjs/operators";
 /**
  * The base loading state
  */
-interface ILoadingState extends Subscribable<boolean> {
+export interface ILoadingState extends Subscribable<boolean> {
 
   readonly loading$: Observable<boolean>;
   readonly loading: boolean;

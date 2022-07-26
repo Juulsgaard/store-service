@@ -1,4 +1,4 @@
-import {Observable} from "rxjs";
+import {distinctUntilChanged, Observable} from "rxjs";
 import {map} from "rxjs/operators";
 import {StoreServiceContext} from "../configs/command-config";
 import {PlainCommand} from "../commands/plain-command";
@@ -44,8 +44,15 @@ export abstract class StoreCommand<TState> {
 
   protected constructor(context: StoreServiceContext<TState>) {
     this.context = context;
-    this.loading$ = context.getLoadState$(this).pipe(map(x => !!x && x > 0));
-    this.loaded$ = context.getLoadState$(this).pipe(map(x => x !== undefined));
+
+    this.loading$ = context.getLoadState$(this).pipe(
+      map(x => !!x && x > 0),
+      distinctUntilChanged()
+    );
+    this.loaded$ = context.getLoadState$(this).pipe(
+      map(x => x !== undefined),
+      distinctUntilChanged()
+    );
   }
 
   /**
@@ -55,6 +62,29 @@ export abstract class StoreCommand<TState> {
     return this.context.getCommandName(this)
   };
 
+}
+
+export abstract class PayloadCommand<TState, TPayload> extends StoreCommand<TState> {
+
+  protected constructor(context: StoreServiceContext<TState>, private requestId?: (payload: TPayload) => string) {
+    super(context);
+  }
+
+  loadingById$(payload: TPayload) {
+    if (!this.requestId) return this.loading$;
+    return this.context.getLoadState$(this, this.requestId(payload)).pipe(
+      map(x => !!x && x > 0),
+      distinctUntilChanged()
+    )
+  }
+
+  loadedById$(payload: TPayload) {
+    if (!this.requestId) return this.loaded$;
+    return this.context.getLoadState$(this, this.requestId(payload)).pipe(
+      map(x => x !== undefined),
+      distinctUntilChanged()
+    )
+  }
 }
 
 export type ActionCommandUnion<TState, TPayload, TData> = ActionCommand<TState, TPayload, TData>|DeferredCommand<TState, TPayload, TData>;

@@ -1,12 +1,13 @@
 import {StoreServiceContext} from "./command-config";
 import {
-  applyScopedObjectReducer, listReducerScope, ObjectReducerData, objectReducerScope, ReducerScope, rootReducerScope
+  applyScopedObjectReducer, listReducerScope, ActionReducerData, objectReducerScope, ReducerScope, rootReducerScope
 } from "../models/reducer-scope";
 import {ArrayType, Conditional, KeysOfType} from "@consensus-labs/ts-tools";
 import {ActionCommandUnion, ListReducer, ObjectReducer, StoreCommandUnion} from "../models/store-types";
 import {CacheCommand, CacheCommandOptions} from "../commands/cache-command";
 import {CacheChunk} from "../caching/cache-chunk";
 import {PlainCommand} from "../commands/plain-command";
+import {tap} from "rxjs";
 
 
 export class CacheCommandConfig<TState extends Record<string, any>, TCache> {
@@ -25,8 +26,8 @@ export class CacheCommandConfig<TState extends Record<string, any>, TCache> {
         initialLoad: false,
         action: ({options}) => this.cache.loadAll(options),
         failCondition: x => x.length === 0,
-        cacheIfOnline: true,
-        fallbackIfOffline: true
+        cacheWhenOnline: true,
+        fallbackWhenOffline: true
       },
       rootReducerScope,
       []
@@ -42,19 +43,35 @@ export class CacheCommandConfig<TState extends Record<string, any>, TCache> {
    * Provide a custom payload, and a mapper from payload to item ID
    * @param map - A mapper from custom payload to item ID
    */
-  fromSingle<TPayload>(map: (payload: TPayload) => string): CacheCommandObjectConfig<TState, TState, TPayload, TCache>;
-  fromSingle(map?: (payload: any) => string): CacheCommandObjectConfig<TState, TState, any, TCache> {
+  fromSingle<TPayload>(map: (payload: TPayload) => string|(string|undefined)[]): CacheCommandObjectConfig<TState, TState, TPayload, TCache>;
+  fromSingle(map?: (payload: any) => string|(string|undefined)[]): CacheCommandObjectConfig<TState, TState, any, TCache> {
 
     if (!map) map = x => x;
 
+    const cacheOptions: CacheCommandOptions<TState, TCache> = {
+      initialLoad: false,
+      action: ({options, payload}) => {
+        let id = map!(payload);
+
+        // Convert composite id, to string
+        if (Array.isArray(id)) id = id.filter(x => !!x).join('_');
+
+        // Mark item as loaded on a successful read
+        return this.cache.loadItem(id, options).pipe(
+          tap(x => {
+            if (x === undefined) return;
+            if (cacheOptions.failCondition?.(x)) return;
+            this.cache.markAsLoaded(id as string);
+          })
+        );
+      },
+      cacheWhenOnline: true,
+      fallbackWhenOffline: true
+    }
+
     return new CacheCommandObjectConfig<TState, TState, any, TCache>(
       this.context,
-      {
-        initialLoad: false,
-        action: ({options, payload}) => this.cache.loadItem(map!(payload), options),
-        cacheIfOnline: true,
-        fallbackIfOffline: true
-      },
+      cacheOptions,
       rootReducerScope,
       []
     )
@@ -93,19 +110,28 @@ class CacheCommandOptionConfig<TPayload, TData> {
    */
   isInitial(requestId?: (payload: TPayload) => string): this {
     this.options.initialLoad = true;
-    this.options.initialLoadId = requestId;
+    this.options.requestId = requestId;
+    return this;
+  }
+
+  /**
+   * Assign a request id to individual actions
+   * @param requestId - Request Id generator
+   */
+  withRequestId(requestId?: (payload: TPayload) => string): this {
+    this.options.requestId = requestId;
     return this;
   }
 
   /** Tell the command to not use the cache if the client is online */
   skipCacheOnline(): this {
-    this.options.cacheIfOnline = false;
+    this.options.cacheWhenOnline = false;
     return this;
   }
 
   /** Tell the command to not use the fallback command if the client is online */
   skipFallbackOffline(): this {
-    this.options.fallbackIfOffline = false;
+    this.options.fallbackWhenOffline = false;
     return this;
   }
 
@@ -139,7 +165,7 @@ class CacheCommandObjectConfig<TRoot, TState extends Record<string, any>, TPaylo
   constructor(
     private context: StoreServiceContext<TRoot>,
     options: CacheCommandOptions<TPayload, TData>,
-    private scope: ReducerScope<TRoot, TState, ObjectReducerData<TPayload, TData>>,
+    private scope: ReducerScope<TRoot, TState, ActionReducerData<TPayload, TData>>,
     private path: string[]
   ) {
     super(options);
@@ -214,7 +240,7 @@ class CacheCommandListConfig<TRoot, TState extends TElement[], TElement, TPayloa
   constructor(
     private context: StoreServiceContext<TRoot>,
     options: CacheCommandOptions<TPayload, TData>,
-    private scope: ReducerScope<TRoot, TState, ObjectReducerData<TPayload, TData>>,
+    private scope: ReducerScope<TRoot, TState, ActionReducerData<TPayload, TData>>,
     private path: string[]
   ) {
     super(options);
@@ -276,7 +302,7 @@ class CacheCommandObjectDataConfig<TRoot, TState extends Record<string, any>, TP
   constructor(
     private context: StoreServiceContext<TRoot>,
     options: CacheCommandOptions<TPayload, TData>,
-    private scope: ReducerScope<TRoot, TState, ObjectReducerData<TPayload, TData>>,
+    private scope: ReducerScope<TRoot, TState, ActionReducerData<TPayload, TData>>,
     private modify: (data: TData, payload: TPayload) => TModified
   ) {
     super(options);
@@ -308,7 +334,7 @@ class CacheCommandListDataConfig<TRoot, TState extends TElement[], TElement, TPa
   constructor(
     private context: StoreServiceContext<TRoot>,
     options: CacheCommandOptions<TPayload, TData>,
-    private scope: ReducerScope<TRoot, TState, ObjectReducerData<TPayload, TData>>,
+    private scope: ReducerScope<TRoot, TState, ActionReducerData<TPayload, TData>>,
     private modify: (data: TData, payload: TPayload) => TModified
   ) {
     super(options);

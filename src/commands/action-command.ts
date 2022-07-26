@@ -1,11 +1,12 @@
-import {EMPTY, tap} from "rxjs";
+import {EMPTY, of, tap} from "rxjs";
 import {logFailedAction, logSuccessfulAction} from "../models/logging";
-import {CommandAction, StoreCommand} from "../models/store-types";
-import {ActionCommandError} from "../models/errors";
+import {CommandAction, PayloadCommand, StoreCommand} from "../models/store-types";
+import {ActionCommandError, InitialLoadError} from "../models/errors";
 import {catchError, map} from "rxjs/operators";
 import {StoreServiceContext} from "../configs/command-config";
 import {LoadingState} from "../loading-state";
 import {QueueAction} from "../models/queue-action";
+import {retryAction} from "../utils/retry";
 
 
 /**
@@ -14,7 +15,7 @@ import {QueueAction} from "../models/queue-action";
 export interface ActionCommandOptions<TPayload, TData> {
   readonly action: CommandAction<TPayload, TData>;
   initialLoad: boolean;
-  initialLoadId?: (payload: TPayload) => string;
+  requestId?: (payload: TPayload) => string;
   showError: boolean;
   errorMessage?: string;
   successMessage?: string | ((data: TData, payload: TPayload) => string);
@@ -22,12 +23,14 @@ export interface ActionCommandOptions<TPayload, TData> {
   queue: boolean;
   /** An effect action that is triggered after a successful command action */
   afterEffect?: (data: TData, payload: TPayload) => void;
+  /** A list of retired. Every number represents the amount of time to wait before the retry attempt */
+  retries?: number[];
 }
 
 /**
  * A command that triggers an action, and then applies a reducer
  */
-export class ActionCommand<TState, TPayload, TData> extends StoreCommand<TState> {
+export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TState, TPayload> {
 
   get initialLoad() {
     return this.options.initialLoad
@@ -38,14 +41,18 @@ export class ActionCommand<TState, TPayload, TData> extends StoreCommand<TState>
     private readonly options: ActionCommandOptions<TPayload, TData>,
     private readonly reducer: (state: TState, data: TData, payload: TPayload) => TState
   ) {
-    super(context);
+    super(context, options.requestId);
   }
 
+  /**
+   * @param payload
+   * @internal
+   */
   alreadyLoaded(payload: TPayload): boolean {
     if (!this.options.initialLoad) return false;
 
-    if (this.options.initialLoadId) {
-      return this.context.getLoadState(this, this.options.initialLoadId(payload)) !== undefined
+    if (this.options.requestId) {
+      return this.context.getLoadState(this, this.options.requestId(payload)) !== undefined
     }
 
     return this.context.getLoadState(this) !== undefined;
@@ -77,15 +84,19 @@ export class ActionCommand<TState, TPayload, TData> extends StoreCommand<TState>
 
     // Throw error if initial load has already been loaded
     if (!ignoreInitial && this.alreadyLoaded(payload)) {
-      return LoadingState.FromError(() => new ActionCommandError('This action has already been loaded', payload))
+      return LoadingState.FromError(() => new InitialLoadError('This action has already been loaded', payload))
     }
 
-    const requestId = this.options.initialLoad ? this.options.initialLoadId?.(payload) : undefined;
+    const requestId = this.options.requestId?.(payload);
 
     this.context.startLoad(this, requestId);
 
     // Create a delayed loading state
-    const loadState = LoadingState.Delayed(() => this.options.action(payload), this.options.modify);
+    const action = () => this.options.action(payload);
+    const loadState = LoadingState.Delayed(
+      this.options.retries ? retryAction(action, this.options.retries, this.context.errorIsCritical) : action,
+      this.options.modify
+    );
 
     // Define the execution for the Command
     const execute = () => {
@@ -114,7 +125,8 @@ export class ActionCommand<TState, TPayload, TData> extends StoreCommand<TState>
     loadState
       .then(data => {
         this.context.endLoad(this, requestId);
-        this.options.afterEffect?.(data, payload);
+        // Use timeout to ensure effect runs after reducer
+        setTimeout(() => this.options.afterEffect?.(data, payload));
       })
       .catch(() => this.context.failLoad(this, requestId))
 

@@ -50,8 +50,6 @@ export class CacheChunk<TChunk> {
 
     this.changeSub?.unsubscribe();
     this.changeSub = concat(this.stateChanges$, this.manualChanges$).pipe(
-      // Skip if no changes are found
-      filter(x => !!x.added?.length || !!x.updated?.length || !!x.removed?.length || !!x.ageChanged?.length),
       // Save the changes to cache
       concatMap(x => from(this.applyChanges(x))),
       // Ignore errors
@@ -127,9 +125,6 @@ export class CacheChunk<TChunk> {
    * @param options
    */
   loadItem(id: string, options?: CacheLoadOptions): Observable<TChunk | undefined> {
-    // Ignore the next time this value is updated in the store
-    // This is to skip the change resulting from this cache load
-    this.ignoreValueChange.add(id);
 
     if (!options?.maxAge) {
       return from(this.readItem(id)).pipe(
@@ -145,6 +140,15 @@ export class CacheChunk<TChunk> {
         return val.data;
       })
     );
+  }
+
+  /**
+   * Ignore the next time this value is updated in the store
+   * This is to skip the change resulting from this cache load
+   * @param id
+   */
+  markAsLoaded(id: string) {
+    this.ignoreValueChange.add(id);
   }
 
   /**

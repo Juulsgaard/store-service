@@ -1,5 +1,7 @@
 import {ActionCommand, ActionCommandOptions} from "../commands/action-command";
-import {applyScopedObjectReducer, listReducerScope, ObjectReducerData, objectReducerScope, ReducerScope} from "../models/reducer-scope";
+import {
+  applyScopedObjectReducer, listReducerScope, ActionReducerData, objectReducerScope, ReducerScope, ActionReducerCoalesce, createActionReducerCoalesce
+} from "../models/reducer-scope";
 import {ListReducer, ObjectReducer} from "../models/store-types";
 import {StoreServiceContext} from "./command-config";
 import {ArrayType, Conditional, KeysOfType} from "@consensus-labs/ts-tools";
@@ -19,7 +21,16 @@ class ActionCommandOptionConfig<TPayload, TData> {
    */
   isInitial(requestId?: (payload: TPayload) => string): this {
     this.options.initialLoad = true;
-    this.options.initialLoadId = requestId;
+    this.options.requestId = requestId;
+    return this;
+  }
+
+  /**
+   * Assign a request id to individual actions
+   * @param requestId - Request Id generator
+   */
+  withRequestId(requestId?: (payload: TPayload) => string): this {
+    this.options.requestId = requestId;
     return this;
   }
 
@@ -67,8 +78,33 @@ class ActionCommandOptionConfig<TPayload, TData> {
     return this;
   }
 
+  /**
+   * Add an action that will be run after a successful command action
+   * @param effect
+   */
   withAfterEffect(effect: (data: TData, payload: TPayload) => void): this {
     this.options.afterEffect = effect;
+    return this;
+  }
+
+  /**
+   * Add a retry policy for the action
+   * @param retries - How many retries
+   * @param delay - The delay between retries
+   * @param backoff - A number added to every consecutive delay
+   */
+  withRetries(retries: number, delay: number, backoff?: number): this;
+  /**
+   * Add a retry policy for the action
+   * @param retries - The delays for every retry
+   */
+  withRetries(retries: number[]): this;
+  withRetries(retries: number[]|number, delay = 1000, backoff = 0): this {
+    if (Array.isArray(retries)) {
+      this.options.retries = retries;
+    } else {
+      this.options.retries = Array.from(new Array(retries), (_, i) => delay + (i * backoff))
+    }
     return this;
   }
 }
@@ -82,7 +118,7 @@ export class ActionCommandObjectConfig<TRoot, TState extends Record<string, any>
   constructor(
     private context: StoreServiceContext<TRoot>,
     options: ActionCommandOptions<TPayload, TData>,
-    private scope: ReducerScope<TRoot, TState, ObjectReducerData<TPayload, TData>>,
+    private scope: ReducerScope<TRoot, TState, ActionReducerData<TPayload, TData>>,
     private path: string[]
   ) {
     super(options);
@@ -91,13 +127,17 @@ export class ActionCommandObjectConfig<TRoot, TState extends Record<string, any>
   /**
    * Target a property on the object
    * @param key - The property name
+   * @param coalesce - A default value to use if property isn't found
    */
-  targetProp<TKey extends KeysOfType<TState, Record<string, any>>>(key: TKey): ActionCommandObjectConfig<TRoot, TState[TKey], TPayload, TData> {
+  targetProp<TKey extends KeysOfType<TState, Record<string, any>>>(
+    key: TKey,
+    coalesce?: ActionReducerCoalesce<TPayload, TData, TState[TKey]>
+  ): ActionCommandObjectConfig<TRoot, TState[TKey], TPayload, TData> {
     const path = [...this.path, key.toString()];
     return new ActionCommandObjectConfig(
       this.context,
       this.options,
-      objectReducerScope(this.scope, key, path),
+      objectReducerScope(this.scope, key, path, createActionReducerCoalesce(coalesce)),
       path
     );
   };
@@ -105,14 +145,18 @@ export class ActionCommandObjectConfig<TRoot, TState extends Record<string, any>
   /**
    * Target a list property on the object
    * @param key - The property name
+   * @param create - Add list if it doesn't exist
    */
-  targetList<TKey extends KeysOfType<TState, any[]>>(key: TKey): ActionCommandListConfig<TRoot, TState[TKey], ArrayType<TState[TKey]>, TPayload, TData> {
+  targetList<TKey extends KeysOfType<TState, any[]>>(
+    key: TKey,
+    create = false
+  ): ActionCommandListConfig<TRoot, TState[TKey], ArrayType<TState[TKey]>, TPayload, TData> {
     const path = [...this.path, key.toString()];
     return new ActionCommandListConfig(
       this.context,
       this.options,
-      objectReducerScope(this.scope, key, path),
-      path
+      objectReducerScope(this.scope, key, path, create ? [] as TState[TKey] : undefined),
+      path,
     );
   };
 
@@ -157,7 +201,7 @@ class ActionCommandListConfig<TRoot, TState extends TElement[], TElement, TPaylo
   constructor(
     private context: StoreServiceContext<TRoot>,
     options: ActionCommandOptions<TPayload, TData>,
-    private scope: ReducerScope<TRoot, TState, ObjectReducerData<TPayload, TData>>,
+    private scope: ReducerScope<TRoot, TState, ActionReducerData<TPayload, TData>>,
     private path: string[]
   ) {
     super(options);
@@ -166,9 +210,11 @@ class ActionCommandListConfig<TRoot, TState extends TElement[], TElement, TPaylo
   /**
    * Target a list item in the list
    * @param selector - The selector for the list item
+   * @param coalesce - A default value to append if item isn't found
    */
   targetItem(
-    selector: Conditional<TElement, Record<string, any>, (x: TElement, data: TData, payload: TPayload) => boolean>
+    selector: Conditional<TElement, Record<string, any>, (x: TElement, data: TData, payload: TPayload) => boolean>,
+    coalesce?: ActionReducerCoalesce<TPayload, TData, TElement>
   ): ActionCommandObjectConfig<TRoot, TElement, TPayload, TData> {
     const path = [...this.path, '[]'];
     return new ActionCommandObjectConfig(
@@ -177,7 +223,7 @@ class ActionCommandListConfig<TRoot, TState extends TElement[], TElement, TPaylo
       listReducerScope(this.scope, (x, {
         data,
         payload
-      }) => selector(x, data, payload), path),
+      }) => selector(x, data, payload), path, createActionReducerCoalesce(coalesce)),
       path
     );
   }
@@ -230,7 +276,7 @@ class ActionCommandObjectDataConfig<TRoot, TState extends Record<string, any>, T
   constructor(
     private context: StoreServiceContext<TRoot>,
     options: ActionCommandOptions<TPayload, TData>,
-    private scope: ReducerScope<TRoot, TState, ObjectReducerData<TPayload, TData>>,
+    private scope: ReducerScope<TRoot, TState, ActionReducerData<TPayload, TData>>,
     private modify: (data: TData, payload: TPayload) => TModified
   ) {
     super(options);
@@ -262,7 +308,7 @@ class ActionCommandListDataConfig<TRoot, TState extends TElement[], TElement, TP
   constructor(
     private context: StoreServiceContext<TRoot>,
     options: ActionCommandOptions<TPayload, TData>,
-    private scope: ReducerScope<TRoot, TState, ObjectReducerData<TPayload, TData>>,
+    private scope: ReducerScope<TRoot, TState, ActionReducerData<TPayload, TData>>,
     private modify: (data: TData, payload: TPayload) => TModified
   ) {
     super(options);

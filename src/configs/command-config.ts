@@ -29,6 +29,8 @@ export interface StoreServiceContext<TState> {
   failLoad(cmd: StoreCommand<TState>, requestId?: string): void;
 
   isProduction: boolean;
+
+  errorIsCritical: (error: any) => boolean;
 }
 
 export class StoreCommandConfig<TState> {

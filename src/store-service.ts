@@ -1,4 +1,4 @@
-import {BehaviorSubject, concatMap, distinctUntilChanged, EMPTY, isObservable, Observable, shareReplay, Subject, Subscription} from "rxjs";
+import {BehaviorSubject, concatMap, distinctUntilChanged, EMPTY, isObservable, Observable, shareReplay, Subject, Subscription, tap} from "rxjs";
 import {StoreClientCommandConfig, StoreCommandConfig, StoreServiceContext} from "./configs/command-config";
 import {Reducer, StoreCommand} from "./models/store-types";
 import {IStoreConfigService} from "./models/store-config-service";
@@ -81,7 +81,8 @@ export abstract class StoreService<TState extends Record<string, any>> {
       this.failLoad(cmd);
       if (requestId) this.failLoad(cmd, requestId)
     },
-    isProduction: this.configService.isProduction
+    isProduction: this.configService.isProduction,
+    errorIsCritical: this.configService.errorIsCritical.bind(this.configService)
   }
 
   /**
@@ -346,6 +347,57 @@ export abstract class StoreService<TState extends Record<string, any>> {
       distinctUntilChanged(),
       shareReplay({bufferSize: 1, refCount: true})
     );
+  }
+
+  /**
+   * Define a selector factory to reuse parameterized selectors
+   * @param builder
+   * @protected
+   */
+  protected selectorFactory<TPayload, TSelect>(
+    builder: (payload: TPayload) => Observable<TSelect>
+  ): (payload: TPayload) => Observable<TSelect>
+  /**
+   * Define a selector factory to reuse parameterized selectors
+   * @param builder
+   * @param getId
+   * @protected
+   */
+  protected selectorFactory<TPayload, TSelect, TId>(
+    builder: (payload: TPayload) => Observable<TSelect>,
+    getId: (payload: TPayload) => TId
+  ): (payload: TPayload) => Observable<TSelect>
+  protected selectorFactory<TPayload, TSelect, TId>(
+    builder: (payload: TPayload) => Observable<TSelect>,
+    getId?: (payload: TPayload) => TId
+  ): (payload: TPayload) => Observable<TSelect> {
+
+    getId ??= (x: any) => x as TId;
+    const lookup = new Map<TId, Observable<TSelect>>();
+
+    // Method that loads / generates a selector on demand
+    const getSelector = (payload: TPayload) => {
+      const id = getId!(payload);
+      let selector = lookup.get(id);
+
+      if (!selector) {
+        selector = builder(payload).pipe(
+          distinctUntilChanged(),
+          // Remove the observable when it's no longer used
+          tap({finalize: () => lookup.delete(id)}),
+          // Multicast the selector
+          shareReplay({bufferSize: 1, refCount: true})
+        );
+        lookup.set(id, selector);
+      }
+
+      return selector;
+    }
+
+    return payload => new Observable<TSelect>(subscriber => {
+      // Get/Create selector on subscribe
+      return getSelector(payload).subscribe(subscriber);
+    });
   }
 
   /**
