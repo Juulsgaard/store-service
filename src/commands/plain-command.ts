@@ -1,6 +1,6 @@
-import {StoreCommand} from "../models/store-types";
 import {StoreServiceContext} from "../configs/command-config";
 import {QueueAction} from "../models/queue-action";
+import {StoreCommand} from "../models/base-commands";
 
 export class PlainCommand<TState, TData> extends StoreCommand<TState> {
 

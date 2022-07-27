@@ -1,6 +1,6 @@
 import {combineLatest, distinctUntilChanged, EMPTY, Observable, of, Subject, switchMap, tap} from "rxjs";
 import {logActionInformation, logFailedAction, logSuccessfulAction} from "../models/logging";
-import {CommandAction, PayloadCommand, StoreCommand, StoreCommandUnion} from "../models/store-types";
+import {CommandAction} from "../models/store-types";
 import {ActionCommandError, CacheCommandError, InitialLoadError} from "../models/errors";
 import {catchError, map} from "rxjs/operators";
 import {StoreServiceContext} from "../configs/command-config";
@@ -8,6 +8,7 @@ import {LoadingState} from "../loading-state";
 import {QueueAction} from "../models/queue-action";
 import {PlainCommand} from "./plain-command";
 import {ActionCommand} from "./action-command";
+import {PayloadCommand, StoreCommand, StoreCommandUnion} from "../models/base-commands";
 
 
 /**

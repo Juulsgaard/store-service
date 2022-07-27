@@ -22,7 +22,11 @@ export class IndexedDbAdapter implements CacheAdapter {
 
       const request = indexedDB.open(`${IndexedDbAdapter.dbPrefix}${id}`, IndexedDbAdapter.version);
       request.onerror = err => reject(err);
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        const db = request.result;
+        db.onversionchange = () => db.close();
+        resolve(db);
+      }
       request.onupgradeneeded = () => this.buildDatabase(request.result);
     });
 
@@ -30,7 +34,7 @@ export class IndexedDbAdapter implements CacheAdapter {
     return db.then(() => true);
   }
 
-  buildDatabase(db: IDBDatabase) {
+  private buildDatabase(db: IDBDatabase) {
     db.createObjectStore("versions", {keyPath: 'chunkId'});
 
     const cacheStore = db.createObjectStore("chunks");
@@ -43,7 +47,7 @@ export class IndexedDbAdapter implements CacheAdapter {
 
   deleteDatabase(id: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.deleteDatabase(id);
+      const request = indexedDB.deleteDatabase(`${IndexedDbAdapter.dbPrefix}${id}`);
       request.onerror = err => reject(err);
       request.onsuccess = () => {
         this.databases.delete(id);
@@ -177,24 +181,18 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
     });
   }
 
-  deleteTag(chunkId: string, tag: string): Promise<void> {
-    if (this.readonly) throw Error(`Can't delete chunks in read mode`);
-
+  deleteTag(tag: string): Promise<void> {
+    if (this.readonly) throw Error(`Can't delete tags in read mode`);
     return new Promise((resolve, reject) => {
-      const request = this.transaction.objectStore('versions').delete(chunkId);
+      const request = this.transaction.objectStore('chunks').index('tags').openCursor(IDBKeyRange.only(tag));
 
       request.onerror = err => reject(err)
       request.onsuccess = () => {
-        const request = this.transaction.objectStore('chunks').index('tags').openCursor(IDBKeyRange.only(tag));
-
-        request.onerror = err => reject(err)
-        request.onsuccess = () => {
-          const cursor = request.result;
-          if (!cursor) return resolve();
-          cursor.delete();
-          cursor.continue();
-        }
-      };
+        const cursor = request.result;
+        if (!cursor) return resolve();
+        cursor.delete();
+        cursor.continue();
+      }
     });
   }
 

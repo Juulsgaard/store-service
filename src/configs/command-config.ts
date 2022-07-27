@@ -1,10 +1,11 @@
 import {Observable} from "rxjs";
-import {CommandAction, StoreCommand} from "../models/store-types";
+import {CommandAction} from "../models/store-types";
 import {ActionCommandObjectConfig} from "./action-command-config";
 import {DeferredCommandObjectConfig} from "./deferred-command-config";
 import {rootReducerScope} from "../models/reducer-scope";
 import {PlainCommandObjectConfig} from "./plain-command-config";
 import {QueueAction} from "../models/queue-action";
+import {StoreCommand} from "../models/base-commands";
 
 /**
  * A context element allowing commands to interface with the store

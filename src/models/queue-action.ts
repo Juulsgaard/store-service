@@ -1,5 +1,6 @@
-import {Reducer, StoreCommand} from "./store-types";
+import {Reducer} from "./store-types";
 import {EMPTY, isObservable, Observable, of, tap} from "rxjs";
+import {StoreCommand} from "./base-commands";
 
 export class QueueAction<TState> {
 

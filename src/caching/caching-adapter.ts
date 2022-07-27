@@ -33,7 +33,7 @@ export interface CacheTransactionAdapter {
   updateValueAge<TData>(chunkId: string, id: string, newAge: Date): Promise<void>;
 
   deleteValue(chunkId: string, id: string): Promise<void>;
-  deleteTag(chunkId: string, tag: string): Promise<void>;
+  deleteTag(tag: string): Promise<void>;
 
   readValue<TData>(chunkId: string, id: string): Promise<CacheItemData<TData> | undefined>;
 

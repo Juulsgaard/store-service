@@ -1,10 +1,11 @@
 import {logFailedAction, logSuccessfulAction} from "../models/logging";
 import {EMPTY, ReplaySubject, startWith, switchMap, tap} from "rxjs";
-import {CommandAction, Reducer, StoreCommand} from "../models/store-types";
+import {CommandAction, Reducer} from "../models/store-types";
 import {StoreServiceContext} from "../configs/command-config";
 import {LoadingState} from "../loading-state";
 import {map} from "rxjs/operators";
 import {QueueAction} from "../models/queue-action";
+import {StoreCommand} from "../models/base-commands";
 
 /**
  * The options for a Deferred Command

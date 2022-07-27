@@ -3,11 +3,13 @@ import {
   applyScopedObjectReducer, listReducerScope, ActionReducerData, objectReducerScope, ReducerScope, rootReducerScope
 } from "../models/reducer-scope";
 import {ArrayType, Conditional, KeysOfType} from "@consensus-labs/ts-tools";
-import {ActionCommandUnion, ListReducer, ObjectReducer, StoreCommandUnion} from "../models/store-types";
+import {ListReducer, ObjectReducer} from "../models/store-types";
 import {CacheCommand, CacheCommandOptions} from "../commands/cache-command";
 import {CacheChunk} from "../caching/cache-chunk";
 import {PlainCommand} from "../commands/plain-command";
 import {tap} from "rxjs";
+import {ActionCommandUnion, StoreCommandUnion} from "../models/base-commands";
+import {IdMap, parseIdMap} from "../utils/id-map";
 
 
 export class CacheCommandConfig<TState extends Record<string, any>, TCache> {
@@ -43,18 +45,15 @@ export class CacheCommandConfig<TState extends Record<string, any>, TCache> {
    * Provide a custom payload, and a mapper from payload to item ID
    * @param map - A mapper from custom payload to item ID
    */
-  fromSingle<TPayload>(map: (payload: TPayload) => string|(string|undefined)[]): CacheCommandObjectConfig<TState, TState, TPayload, TCache>;
-  fromSingle(map?: (payload: any) => string|(string|undefined)[]): CacheCommandObjectConfig<TState, TState, any, TCache> {
+  fromSingle<TPayload>(map: IdMap<TPayload>): CacheCommandObjectConfig<TState, TState, TPayload, TCache>;
+  fromSingle(map?: IdMap<any>): CacheCommandObjectConfig<TState, TState, any, TCache> {
 
-    if (!map) map = x => x;
+    const idMap = map ? parseIdMap(map) : (x: unknown) => x as string;
 
     const cacheOptions: CacheCommandOptions<TState, TCache> = {
       initialLoad: false,
       action: ({options, payload}) => {
-        let id = map!(payload);
-
-        // Convert composite id, to string
-        if (Array.isArray(id)) id = id.filter(x => !!x).join('_');
+        let id = idMap(payload);
 
         // Mark item as loaded on a successful read
         return this.cache.loadItem(id, options).pipe(

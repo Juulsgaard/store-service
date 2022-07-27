@@ -1,4 +1,4 @@
-import {concat, distinctUntilChanged, EMPTY, from, Observable, Subject, Subscription, switchMap, tap} from "rxjs";
+import {concat, distinctUntilChanged, EMPTY, from, merge, Observable, Subject, Subscription, switchMap, tap} from "rxjs";
 import {catchError, concatMap, filter, map, pairwise} from "rxjs/operators";
 import {arrToMap} from "@consensus-labs/ts-tools";
 import {CacheChunkContext} from "./caching-interface";
@@ -39,7 +39,10 @@ export class CacheChunk<TChunk> {
         // Find changes between the 2 states
         map(([oldMap, newMap]) => this.mapChanges(oldMap, newMap)),
         // Ignore errors
-        catchError(() => EMPTY)
+        catchError(e => {
+          console.error('An error occurred computing changes in cache chunks', e);
+          return EMPTY;
+        })
       ))
     ).subscribe(this.stateChanges$);
   }
@@ -49,11 +52,14 @@ export class CacheChunk<TChunk> {
     this.context.reset();
 
     this.changeSub?.unsubscribe();
-    this.changeSub = concat(this.stateChanges$, this.manualChanges$).pipe(
+    this.changeSub = merge(this.stateChanges$, this.manualChanges$).pipe(
       // Save the changes to cache
       concatMap(x => from(this.applyChanges(x))),
       // Ignore errors
-      catchError(() => EMPTY)
+      catchError(e => {
+        console.error('An error occurred applying changes to cache', e);
+        return EMPTY;
+      })
     ).subscribe()
   }
 

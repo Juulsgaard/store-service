@@ -1,11 +1,12 @@
 import {BehaviorSubject, concatMap, distinctUntilChanged, EMPTY, isObservable, Observable, shareReplay, Subject, Subscription, tap} from "rxjs";
 import {StoreClientCommandConfig, StoreCommandConfig, StoreServiceContext} from "./configs/command-config";
-import {Reducer, StoreCommand} from "./models/store-types";
+import {Reducer} from "./models/store-types";
 import {IStoreConfigService} from "./models/store-config-service";
 import {catchError, map} from "rxjs/operators";
 import {ActionCommand} from "./commands/action-command";
 import {arrToMap, deepCopy, deepFreeze, slugify, titleCase} from "@consensus-labs/ts-tools";
 import {QueueAction} from "./models/queue-action";
+import {StoreCommand} from "./models/base-commands";
 
 /**
  * A service managing the store state
@@ -302,6 +303,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
 
     this._state$.next(this.freeze(deepCopy(this.initialState)));
     this.loadStates.forEach(x => x.next(undefined));
+    this.requestLoadStates.forEach(cmd => cmd.forEach(x => x.next(undefined)));
   }
 
 
