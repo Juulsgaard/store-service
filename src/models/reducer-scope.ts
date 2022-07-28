@@ -2,13 +2,13 @@ import {isFunction} from "@consensus-labs/ts-tools";
 
 export type ReducerScope<TRoot, TState, TData> = (root: TRoot, data: TData, func: (state: TState) => TState) => TRoot;
 export type ActionReducerData<TPayload, TData> = { payload: TPayload, data: TData };
-export type ReducerCoalesce<TData, TElement> = TElement|((data: TData) => TElement)|undefined;
-export type ActionReducerCoalesce<TPayload, TData, TElement> = TElement|((data: TData, payload: TPayload) => TElement)|undefined;
+export type ReducerCoalesce<TData, TElement, TState> = TElement|((data: TData, state: TState) => TElement)|undefined;
+export type ActionReducerCoalesce<TPayload, TData, TElement, TState> = TElement|((data: TData, payload: TPayload, state: TState) => TElement)|undefined;
 
-export function createActionReducerCoalesce<TPayload, TData, TElement>(coalesce: ActionReducerCoalesce<TPayload, TData, TElement>): ReducerCoalesce<ActionReducerData<TPayload, TData>, TElement> {
+export function createActionReducerCoalesce<TPayload, TData, TElement, TState>(coalesce: ActionReducerCoalesce<TPayload, TData, TElement, TState>): ReducerCoalesce<ActionReducerData<TPayload, TData>, TElement, TState> {
   if (coalesce === undefined) return undefined;
   if (!isFunction(coalesce)) return coalesce;
-  return ({data, payload}) => coalesce(data, payload);
+  return ({data, payload}, state) => coalesce(data, payload, state);
 }
 
 export function rootReducerScope<TRoot>(root: TRoot, data: unknown, func: (state: TRoot) => TRoot) {
@@ -19,7 +19,7 @@ export function objectReducerScope<TRoot, TState extends Record<string, any>, TT
   prevReducer: ReducerScope<TRoot, TState, TData>,
   key: keyof TState,
   path: string[],
-  coalesce?: ReducerCoalesce<TData, TTarget>
+  coalesce?: ReducerCoalesce<TData, TTarget, TState>
 ): ReducerScope<TRoot, TTarget, TData> {
   return (root, data, func) => {
     return prevReducer(root, data, (state: TState) => {
@@ -28,7 +28,7 @@ export function objectReducerScope<TRoot, TState extends Record<string, any>, TT
 
       // If value isn't found, but default is set, use default
       if (coalesce !== undefined && val === undefined) {
-        val = isFunction(coalesce) ? coalesce(data) : coalesce;
+        val = isFunction(coalesce) ? coalesce(data, state) : coalesce;
       }
 
       // If no value or default is found, return no changes
@@ -49,15 +49,18 @@ export function objectReducerScope<TRoot, TState extends Record<string, any>, TT
 
 export function listReducerScope<TRoot, TState extends TElement[], TElement, TData>(
   prevReducer: ReducerScope<TRoot, TState, TData>,
-  selector: (x: TElement, data: TData) => boolean,
+  selector: (data: TData) => (element: TElement) => boolean,
   path: string[],
-  coalesce?: ReducerCoalesce<TData, TElement>
+  coalesce?: ReducerCoalesce<TData, TElement, TState>
 ): ReducerScope<TRoot, TElement, TData> {
   return (root, data, func) => {
+
+    const filter = selector(data);
+
     return prevReducer(root, data, (state: TState) => {
 
       // Get index of element
-      let index = state.findIndex(x => selector(x, data));
+      let index = state.findIndex(x => filter(x));
 
       // If element isn't found, and default is given, then append default
       if (coalesce !== undefined && index < 0) index = state.length;
@@ -70,7 +73,7 @@ export function listReducerScope<TRoot, TState extends TElement[], TElement, TDa
 
       // Set value to default value if applicable, otherwise read value from state
       const val = index === state.length && coalesce !== undefined
-        ? (isFunction(coalesce) ? coalesce(data) : coalesce)
+        ? (isFunction(coalesce) ? coalesce(data, state) : coalesce)
         : state[index];
 
       // Apply sub-reducer

@@ -47,6 +47,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
    */
   private readonly storeName: string;
 
+  //<editor-fold desc="Loading State">
   /**
    * The current loading state of all commands
    * @private
@@ -58,6 +59,21 @@ export abstract class StoreService<TState extends Record<string, any>> {
    * @private
    */
   private requestLoadStates = new Map<StoreCommand<TState>, Map<string, BehaviorSubject<number | undefined>>>();
+  //</editor-fold>
+
+  //<editor-fold desc="Failure State">
+  /**
+   * The current failure state of all commands
+   * @private
+   */
+  private failStates = new Map<StoreCommand<TState>, BehaviorSubject<boolean>>();
+
+  /**
+   * The current failure state of all commands grouped on RequestId
+   * @private
+   */
+  private requestFailStates = new Map<StoreCommand<TState>, Map<string, BehaviorSubject<boolean>>>();
+  //</editor-fold>
 
   /**
    * A context object that allows commands to interact with the store
@@ -68,6 +84,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
     applyCommand: reducer$ => this.reducerQueue$.next(reducer$),
     getLoadState: (cmd: StoreCommand<TState>, requestId?: string) => this.getLoadState$(cmd, requestId).value,
     getLoadState$: (cmd: StoreCommand<TState>, requestId?: string) => this.getLoadState$(cmd, requestId).asObservable(),
+    getFailureState$: (cmd: StoreCommand<TState>, requestId?: string) => this.getFailureState$(cmd, requestId).asObservable(),
     displayError: (msg, error) => this.configService.displayError(msg, error),
     displaySuccess: (message: string) => this.configService.displaySuccess(message),
     startLoad: (cmd: StoreCommand<TState>, requestId?: string) => {
@@ -81,6 +98,10 @@ export abstract class StoreService<TState extends Record<string, any>> {
     failLoad: (cmd: StoreCommand<TState>, requestId?: string) => {
       this.failLoad(cmd);
       if (requestId) this.failLoad(cmd, requestId)
+    },
+    resetFailState: (cmd: StoreCommand<TState>, requestId?: string) => {
+      this.resetFailState(cmd);
+      if (requestId) this.resetFailState(cmd, requestId)
     },
     isProduction: this.configService.isProduction,
     errorIsCritical: this.configService.errorIsCritical.bind(this.configService)
@@ -202,6 +223,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
     return true;
   }
 
+  //<editor-fold desc="Get Load State">
   /**
    * Get a subject with the loading state of a Command
    * @param cmd - The command
@@ -231,7 +253,55 @@ export abstract class StoreService<TState extends Record<string, any>> {
     map.set(requestId, sub);
     return sub;
   }
+  //</editor-fold>
 
+  //<editor-fold desc="Get Fail State">
+  /**
+   * Get a subject with the failure state of a Command
+   * @param cmd - The command
+   * @param requestId - An optional RequestId
+   * @private
+   */
+  private getFailureState$(cmd: StoreCommand<TState>, requestId?: string) {
+    if (!requestId) {
+      let sub = this.failStates.get(cmd);
+      if (sub) return sub;
+
+      sub = new BehaviorSubject(false);
+      this.failStates.set(cmd, sub);
+      return sub;
+    }
+
+    let map = this.requestFailStates.get(cmd);
+    if (!map) {
+      map = new Map();
+      this.requestFailStates.set(cmd, map);
+    }
+
+    let sub = map.get(requestId);
+    if (sub) return sub;
+
+    sub = new BehaviorSubject(false);
+    map.set(requestId, sub);
+    return sub;
+  }
+
+  /**
+   * Get a subject with the failure state of a Command
+   * @param cmd - The command
+   * @param requestId - An optional RequestId
+   * @private
+   */
+  private getFailureStateOrDefault$(cmd: StoreCommand<TState>, requestId?: string) {
+    if (!requestId) {
+      return this.failStates.get(cmd);
+    }
+
+    return this.requestFailStates.get(cmd)?.get(requestId);
+  }
+  //</editor-fold>
+
+  //<editor-fold desc="Manage Fail / Load state">
   /**
    * Mark a command as having started loading
    * @param cmd - The command
@@ -241,6 +311,9 @@ export abstract class StoreService<TState extends Record<string, any>> {
   private startLoad(cmd: StoreCommand<TState>, requestId?: string) {
     const sub = this.getLoadState$(cmd, requestId);
     sub.next((sub.value ?? 0) + 1);
+
+    // Reset fail state
+    this.resetFailState(cmd, requestId);
   }
 
   /**
@@ -252,6 +325,9 @@ export abstract class StoreService<TState extends Record<string, any>> {
   private endLoad(cmd: StoreCommand<TState>, requestId?: string) {
     const sub = this.getLoadState$(cmd, requestId);
     sub.next((sub.value ?? 1) - 1);
+
+    // Reset fail state
+    this.resetFailState(cmd, requestId);
   }
 
   /**
@@ -261,6 +337,8 @@ export abstract class StoreService<TState extends Record<string, any>> {
    * @private
    */
   private failLoad(cmd: StoreCommand<TState>, requestId?: string) {
+    this.getFailureState$(cmd, requestId).next(true);
+
     const sub = this.getLoadState$(cmd, requestId);
     const val = sub.value ?? 1;
 
@@ -272,6 +350,11 @@ export abstract class StoreService<TState extends Record<string, any>> {
 
     sub.next(val - 1);
   }
+
+  private resetFailState(cmd: StoreCommand<TState>, requestId?: string) {
+    this.getFailureStateOrDefault$(cmd, requestId)?.next(false);
+  }
+  //</editor-fold>
 
   /**
    * Get the display name of a command

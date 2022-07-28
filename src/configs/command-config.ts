@@ -23,11 +23,15 @@ export interface StoreServiceContext<TState> {
 
   getLoadState$(cmd: StoreCommand<TState>, requestId?: string): Observable<number | undefined>;
 
+  getFailureState$(cmd: StoreCommand<TState>, requestId?: string): Observable<boolean>;
+
   startLoad(cmd: StoreCommand<TState>, requestId?: string): void;
 
   endLoad(cmd: StoreCommand<TState>, requestId?: string): void;
 
   failLoad(cmd: StoreCommand<TState>, requestId?: string): void;
+
+  resetFailState(cmd: StoreCommand<TState>, requestId?: string): void;
 
   isProduction: boolean;
 

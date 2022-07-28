@@ -1,9 +1,10 @@
 import {StoreServiceContext} from "./command-config";
 import {
-  applyScopedObjectReducer, listReducerScope, ActionReducerData, objectReducerScope, ReducerScope, rootReducerScope
+  applyScopedObjectReducer, listReducerScope, ActionReducerData, objectReducerScope, ReducerScope, rootReducerScope, ActionReducerCoalesce,
+  createActionReducerCoalesce
 } from "../models/reducer-scope";
-import {ArrayType, Conditional, KeysOfType} from "@consensus-labs/ts-tools";
-import {ListReducer, ObjectReducer} from "../models/store-types";
+import {ArrayType, Conditional, KeysOfType, KeysOfTypeOrNull, ValueOfKey} from "@consensus-labs/ts-tools";
+import {ListReducer, ListSelector, ObjectReducer} from "../models/store-types";
 import {CacheCommand, CacheCommandOptions} from "../commands/cache-command";
 import {CacheChunk} from "../caching/cache-chunk";
 import {PlainCommand} from "../commands/plain-command";
@@ -173,13 +174,17 @@ class CacheCommandObjectConfig<TRoot, TState extends Record<string, any>, TPaylo
   /**
    * Target a property on the object
    * @param key - The property name
+   * @param coalesce - A default value to use if property isn't found
    */
-  targetProp<TKey extends KeysOfType<TState, Record<string, any>>>(key: TKey): CacheCommandObjectConfig<TRoot, TState[TKey], TPayload, TData> {
+  targetProp<TKey extends KeysOfTypeOrNull<TState, Record<string, any>>>(
+    key: TKey,
+    coalesce?: ActionReducerCoalesce<TPayload, TData, ValueOfKey<TState, TKey>, TState>
+  ): CacheCommandObjectConfig<TRoot, ValueOfKey<TState, TKey>, TPayload, TData> {
     const path = [...this.path, key.toString()];
     return new CacheCommandObjectConfig(
       this.context,
       this.options,
-      objectReducerScope(this.scope, key, path),
+      objectReducerScope(this.scope, key, path, createActionReducerCoalesce(coalesce)),
       path
     );
   };
@@ -187,13 +192,17 @@ class CacheCommandObjectConfig<TRoot, TState extends Record<string, any>, TPaylo
   /**
    * Target a list property on the object
    * @param key - The property name
+   * @param create - Add list if it doesn't exist
    */
-  targetList<TKey extends KeysOfType<TState, any[]>>(key: TKey): CacheCommandListConfig<TRoot, TState[TKey], ArrayType<TState[TKey]>, TPayload, TData> {
+  targetList<TKey extends KeysOfTypeOrNull<TState, any[]>>(
+    key: TKey,
+    create = false
+  ): CacheCommandListConfig<TRoot, ValueOfKey<TState, TKey>, ArrayType<ValueOfKey<TState, TKey>>, TPayload, TData> {
     const path = [...this.path, key.toString()];
     return new CacheCommandListConfig(
       this.context,
       this.options,
-      objectReducerScope(this.scope, key, path),
+      objectReducerScope(this.scope, key, path, create ? [] as TState[TKey] : undefined),
       path
     );
   };
@@ -202,7 +211,7 @@ class CacheCommandObjectConfig<TRoot, TState extends Record<string, any>, TPaylo
    * Apply a modification to the payload / data before the reducer
    * @param func - The data modification
    */
-  modify<TModified>(func: (data: TData, payload: TPayload) => TModified): CacheCommandObjectDataConfig<TRoot, TState, TPayload, TData, TModified> {
+  modify<TModified>(func: (data: TData, payload: TPayload, state: TState) => TModified): CacheCommandObjectDataConfig<TRoot, TState, TPayload, TData, TModified> {
     return new CacheCommandObjectDataConfig(this.context, this.options, this.scope, func);
   }
 
@@ -248,18 +257,22 @@ class CacheCommandListConfig<TRoot, TState extends TElement[], TElement, TPayloa
   /**
    * Target a list item in the list
    * @param selector - The selector for the list item
+   * @param coalesce - A default value to append if item isn't found
    */
   targetItem(
-    selector: Conditional<TElement, Record<string, any>, (x: TElement, data: TData, payload: TPayload) => boolean>
+    selector: Conditional<TElement, Record<string, any>, ListSelector<TElement, TPayload, TData>>,
+    coalesce?: ActionReducerCoalesce<TPayload, TData, TElement, TState>
   ): CacheCommandObjectConfig<TRoot, TElement, TPayload, TData> {
     const path = [...this.path, '[]'];
     return new CacheCommandObjectConfig(
       this.context,
       this.options,
-      listReducerScope(this.scope, (x, {
-        data,
-        payload
-      }) => selector(x, data, payload), path),
+      listReducerScope(
+        this.scope,
+        ({data, payload}) => selector(data, payload),
+        path,
+        createActionReducerCoalesce(coalesce)
+      ),
       path
     );
   }
@@ -268,7 +281,7 @@ class CacheCommandListConfig<TRoot, TState extends TElement[], TElement, TPayloa
    * Apply a modification to the payload / data before the reducer
    * @param func - The data modification
    */
-  modify<TModified>(func: (data: TData, payload: TPayload) => TModified): CacheCommandListDataConfig<TRoot, TState, TElement, TPayload, TData, TModified> {
+  modify<TModified>(func: (data: TData, payload: TPayload, state: TState) => TModified): CacheCommandListDataConfig<TRoot, TState, TElement, TPayload, TData, TModified> {
     return new CacheCommandListDataConfig(this.context, this.options, this.scope, func);
   }
 
@@ -302,7 +315,7 @@ class CacheCommandObjectDataConfig<TRoot, TState extends Record<string, any>, TP
     private context: StoreServiceContext<TRoot>,
     options: CacheCommandOptions<TPayload, TData>,
     private scope: ReducerScope<TRoot, TState, ActionReducerData<TPayload, TData>>,
-    private modify: (data: TData, payload: TPayload) => TModified
+    private modify: (data: TData, payload: TPayload, state: TState) => TModified
   ) {
     super(options);
   }
@@ -318,7 +331,7 @@ class CacheCommandObjectDataConfig<TRoot, TState extends Record<string, any>, TP
       (root, data, payload) => this.scope(
         root,
         {data, payload},
-        state => applyScopedObjectReducer(state, reducer(this.modify(data, payload), state))
+        state => applyScopedObjectReducer(state, reducer(this.modify(data, payload, state), state))
       )
     );
   }
@@ -334,7 +347,7 @@ class CacheCommandListDataConfig<TRoot, TState extends TElement[], TElement, TPa
     private context: StoreServiceContext<TRoot>,
     options: CacheCommandOptions<TPayload, TData>,
     private scope: ReducerScope<TRoot, TState, ActionReducerData<TPayload, TData>>,
-    private modify: (data: TData, payload: TPayload) => TModified
+    private modify: (data: TData, payload: TPayload, state: TState) => TModified
   ) {
     super(options);
   }
@@ -350,7 +363,7 @@ class CacheCommandListDataConfig<TRoot, TState extends TElement[], TElement, TPa
       (root, data, payload) => this.scope(
         root,
         {data, payload},
-        state => reducer(this.modify(data, payload), state)
+        state => reducer(this.modify(data, payload, state), state)
       )
     );
   }

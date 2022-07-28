@@ -1,19 +1,34 @@
 import {
-  BehaviorSubject, from, isObservable, lastValueFrom, Observable, Observer, of, ReplaySubject, Subject, Subscribable, Subscription, switchMap, tap,
+  BehaviorSubject, EMPTY, from, isObservable, lastValueFrom, Observable, Observer, of, ReplaySubject, shareReplay, startWith, Subject, Subscribable,
+  Subscription,
+  switchMap,
+  tap,
   throwError,
   Unsubscribable
 } from "rxjs";
 import {first, map} from "rxjs/operators";
+import {CancelledError} from "./models/errors";
 
 /**
  * The base loading state
  */
 export interface ILoadingState extends Subscribable<boolean> {
 
+  /** Indicates the loading state of the command */
   readonly loading$: Observable<boolean>;
+  /** Emits an error if one occurs */
+  readonly error$: Observable<any>;
+  /** Indicates if the actions has failed */
+  readonly failed$: Observable<any>;
+  /** Indicates the loading state of the command */
   readonly loading: boolean;
+  /** Indicates if the action was async or not */
   readonly isAsync: boolean;
 
+  /**
+   * Cancels the actions
+   * If the action was in progress, an error will be emitted
+   */
   cancel(): void;
 }
 
@@ -23,6 +38,8 @@ export interface ILoadingState extends Subscribable<boolean> {
 class EmptyLoadingState implements ILoadingState {
 
   readonly loading$ = of(false);
+  readonly error$ = EMPTY;
+  readonly failed$ = of(false);
   readonly loading = false;
   readonly isAsync = false;
   cancel() {}
@@ -88,17 +105,18 @@ export class LoadingState<TData> implements ILoadingState {
 
 
   private _loading$ = new BehaviorSubject(true);
-  /**
-   * Indicated the loading state of the command
-   */
+  /** @inheritDoc */
   readonly loading$: Observable<boolean>;
 
-  /**
-   * Get the current loading state
-   */
+  /** @inheritDoc */
   get loading() {
     return this._loading$.value
   }
+  /** @inheritDoc */
+  error$: Observable<any>;
+
+  /** @inheritDoc */
+  failed$: Observable<boolean>;
 
   /**
    * The internal result state
@@ -119,15 +137,29 @@ export class LoadingState<TData> implements ILoadingState {
     return this._asyncResult;
   }
 
-  /**
-   * The value is evaluated in an async fashion
-   */
+  /** @inheritDoc */
   readonly isAsync: boolean;
 
   constructor(data: TData | Promise<TData> | Observable<TData>) {
 
     this.result$ = this._result$.asObservable();
     this.loading$ = this._loading$.asObservable();
+
+    // Filter out errors
+    this.error$ = new Observable(subscriber => {
+      this.result$.subscribe({
+        error: err => {
+          subscriber.next(err);
+          subscriber.complete();
+        },
+        complete: () => subscriber.complete()
+      })
+    }).pipe(shareReplay(1));
+
+    this.failed$ = this.error$.pipe(
+      map(() => true),
+      startWith(false)
+    ).pipe(shareReplay(1));
 
     if (data instanceof Promise) {
       this.isAsync = true;
@@ -195,7 +227,7 @@ export class LoadingState<TData> implements ILoadingState {
   cancel() {
     this.subscription?.unsubscribe();
     if (this._result$.closed) return;
-    this.setError(Error('Cancelled'));
+    this.setError(new CancelledError());
   }
 
   /**

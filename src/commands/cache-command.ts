@@ -52,6 +52,7 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
 
   cacheLoading$: Observable<boolean>;
   cacheLoaded$: Observable<boolean>;
+  cacheFailed$: Observable<boolean>;
 
   constructor(
     context: StoreServiceContext<TState>,
@@ -64,23 +65,27 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
 
     this.cacheLoading$ = super.loading$;
     this.cacheLoaded$ = super.loaded$;
+    this.cacheFailed$ = super.failed$;
 
     if (fallbackCommand) {
       this.loading$ = combineLatest([this.cacheLoading$, fallbackCommand.loading$]).pipe(
         map(([x, y]) => x || y),
         distinctUntilChanged()
       );
-    }
 
-    if (fallbackCommand) {
       this.loaded$ = combineLatest([this.cacheLoaded$, fallbackCommand.loaded$]).pipe(
+        map(([x, y]) => x || y),
+        distinctUntilChanged()
+      );
+
+      this.failed$ = combineLatest([this.cacheFailed$, fallbackCommand.failed$]).pipe(
         map(([x, y]) => x || y),
         distinctUntilChanged()
       );
     }
   }
 
-  //<editor-fold desc="Request Loading State">
+  //<editor-fold desc="Cache Request Loading State">
   cacheLoadingById$(payload: TPayload) {
     if (!this.options.requestId) return this.loading$;
     return this.context.getLoadState$(this, this.options.requestId(payload)).pipe(
@@ -96,6 +101,17 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
       distinctUntilChanged()
     )
   }
+
+  cacheFailedById$(payload: TPayload) {
+    if (!this.options.requestId) return this.failed$;
+    return this.context.getFailureState$(this, this.options.requestId(payload)).pipe(
+      distinctUntilChanged()
+    )
+  }
+
+  //</editor-fold>
+
+  //<editor-fold desc="Combined Request Loading State">
 
   loadingById$(payload: TPayload & TXPayload): Observable<boolean>;
   loadingById$(cachePayload: TPayload, commandPayload: TXPayload): Observable<boolean>;
@@ -116,6 +132,18 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
     if (!this.fallbackCommand || !('loadedById$' in this.fallbackCommand)) return this.cacheLoadedById$(cachePayload);
     const cmdPayload = commandPayload ?? cachePayload as TXPayload;
     return combineLatest([this.cacheLoadedById$(cachePayload), this.fallbackCommand.loadedById$(cmdPayload)]).pipe(
+      map(([x, y]) => x || y),
+      distinctUntilChanged()
+    );
+  }
+
+  failedById$(payload: TPayload & TXPayload): Observable<boolean>;
+  failedById$(cachePayload: TPayload, commandPayload: TXPayload): Observable<boolean>;
+  failedById$(cachePayload: TPayload | (TPayload & TXPayload), commandPayload?: TXPayload) {
+    if (!this.options.requestId) return this.failed$;
+    if (!this.fallbackCommand || !('failedById$' in this.fallbackCommand)) return this.cacheFailedById$(cachePayload);
+    const cmdPayload = commandPayload ?? cachePayload as TXPayload;
+    return combineLatest([this.cacheFailedById$(cachePayload), this.fallbackCommand.failedById$(cmdPayload)]).pipe(
       map(([x, y]) => x || y),
       distinctUntilChanged()
     );
@@ -179,7 +207,8 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
     const absoluteAge = online ? !!this.options.onlineAbsoluteAge : !!this.options.offlineAbsoluteAge;
     //</editor-fold>
 
-    //<editor-fold desc="Fallback emission">
+    //<editor-fold desc="Fallback Helpers">
+
     // Method that emits the fallback command
     const emitFallback = () => {
       // Concurrent Plain fallback
@@ -194,6 +223,17 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
         .then(data => sharedState.next(data))
         .catch(err => sharedState.error(err));
     };
+
+    const resetFallback = () => {
+      if (!this.fallbackCommand) return;
+      if ('resetFailureStateById' in this.fallbackCommand) {
+        this.fallbackCommand.resetFailureStateById(cmdPayload);
+        return;
+      }
+
+      this.fallbackCommand.resetFailState();
+    };
+
     //</editor-fold>
 
     // Check if cache should be used based on online state of client
@@ -249,61 +289,80 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
       true
     ));
 
+    //<editor-fold desc="Cache Value Parsing Helper">
+    /**
+     * A method that handles the cache result
+     * @param result
+     * @throws CacheCommandError - Throws error if invalid state is reached
+     * @return valid - Returns true if value should be returned, false when fallback should be emitted
+     */
+    const validateCacheResult = (result: TData|undefined): boolean => {
+      if (this.fallbackCommand) {
+
+        //<editor-fold desc="Concurrent Fallback">
+        if (this.concurrentFallback) {
+
+          // If fallback is not valid
+          if (!online && !this.options.fallbackWhenOffline) {
+
+            // If fallback is not valid, and cache wasn't valid, return error
+            if (!this.valueIsValid(result)) {
+              throw new CacheCommandError(`Concurrent fallback isn't offline, and no value found in cache`, cachePayload);
+            }
+
+            // If fallback isn't valid, but cache was, return cache value
+            resetFallback();
+            return true;
+          }
+
+          // If fallback is valid, execute it
+          return false;
+        }
+        //</editor-fold>
+
+        // If cache was valid, return cache
+        if (this.valueIsValid(result)) {
+          resetFallback();
+          return true;
+        }
+
+        // If fallback is invalid return error
+        if (!online && !this.options.fallbackWhenOffline) {
+          throw new CacheCommandError('No value found in cache, and no offline fallback', cachePayload);
+        }
+
+        // If fallback is valid, but cache wasn't, emit fallback
+        return false;
+      }
+
+      // If no fallback, and invalid cache return error
+      if (!this.valueIsValid(result)) {
+        throw new CacheCommandError('No value found in cache, and no fallback', cachePayload);
+      }
+
+      // Default case - Emit cache result
+      return true;
+    }
+    //</editor-fold>
+
     //<editor-fold desc="Post Cache Fallback logic">
     cacheLoad
       .then(result => {
-        this.context.endLoad(this, requestId);
+        try {
+          // Check if cache result is valid
+          const valid = validateCacheResult(result);
+          this.context.endLoad(this, requestId);
 
-        if (this.fallbackCommand) {
+          // If valid return result
+          if (valid) sharedState.next(result);
+          // If invalid, emit the fallback
+          else emitFallback();
 
-          //<editor-fold desc="Concurrent Fallback">
-          if (this.concurrentFallback) {
-
-            // If fallback is not valid
-            if (!online && !this.options.fallbackWhenOffline) {
-
-              // If fallback is not valid, and cache wasn't valid, return error
-              if (!this.valueIsValid(result)) {
-                sharedState.error(new CacheCommandError(`Concurrent fallback isn't offline, and no value found in cache`, cachePayload));
-                return;
-              }
-
-              // If fallback isn't valid, but cache was, return cache value
-              sharedState.next(result);
-              return;
-            }
-
-            // If fallback is valid, execute it
-            emitFallback();
-            return;
-          }
-          //</editor-fold>
-
-          // If cache was valid, return cache
-          if (this.valueIsValid(result)) {
-            sharedState.next(result);
-            return;
-          }
-
-          // If fallback is invalid return error
-          if (!online && !this.options.fallbackWhenOffline) {
-            sharedState.error(new CacheCommandError('No value found in cache, and no offline fallback', cachePayload));
-            return;
-          }
-
-          // If fallback is valid, but cache wasn't, emit fallback
-          emitFallback();
-          return;
+        } catch (error: any) {
+          // Handle fail states
+          this.context.failLoad(this, requestId);
+          sharedState.error(error);
         }
-
-        // If no fallback, and invalid cache return error
-        if (!this.valueIsValid(result)) {
-          sharedState.error(new CacheCommandError('No value found in cache, and no fallback', cachePayload));
-          return;
-        }
-
-        // Default case - Emit cache result
-        sharedState.next(result);
       })
       .catch(err => {
         this.context.failLoad(this, requestId);

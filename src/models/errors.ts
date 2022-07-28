@@ -21,3 +21,9 @@ export class InitialLoadError<TPayload> extends Error {
   }
 
 }
+
+export class CancelledError extends Error {
+  constructor() {
+    super('Cancelled');
+  }
+}

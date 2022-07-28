@@ -17,9 +17,13 @@ export abstract class StoreCommand<TState> {
    */
   loading$: Observable<boolean>;
   /**
-   * Indicated if any command of this type have been started
+   * Indicates if any command of this type have been started
    */
   loaded$: Observable<boolean>;
+  /**
+   * Indicates if any command of this type has recently failed
+   */
+  failed$: Observable<boolean>;
 
   protected context: StoreServiceContext<TState>
 
@@ -34,6 +38,9 @@ export abstract class StoreCommand<TState> {
       map(x => x !== undefined),
       distinctUntilChanged()
     );
+    this.failed$ = context.getFailureState$(this).pipe(
+      distinctUntilChanged()
+    );
   }
 
   /**
@@ -42,6 +49,14 @@ export abstract class StoreCommand<TState> {
   get name() {
     return this.context.getCommandName(this)
   };
+
+  /**
+   * Resets the failure state of the command
+   * @internal
+   */
+  resetFailState() {
+    this.context.resetFailState(this);
+  }
 
 }
 
@@ -65,6 +80,25 @@ export abstract class PayloadCommand<TState, TPayload> extends StoreCommand<TSta
       map(x => x !== undefined),
       distinctUntilChanged()
     )
+  }
+
+  failedById$(payload: TPayload) {
+    if (!this.requestId) return this.failed$;
+    return this.context.getFailureState$(this, this.requestId(payload)).pipe(
+      distinctUntilChanged()
+    )
+  }
+
+  /**
+   * Resets the failure state of the command and specific request
+   * @internal
+   */
+  resetFailureStateById(payload: TPayload) {
+    if (!this.requestId) {
+      this.resetFailState();
+      return;
+    }
+    this.context.resetFailState(this, this.requestId(payload));
   }
 }
 

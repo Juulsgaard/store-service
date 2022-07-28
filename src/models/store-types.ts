@@ -18,3 +18,8 @@ export type ListReducer<TState extends TElement[], TElement, TData> = (data: TDa
  * A reducer that can be applied to an object
  */
 export type ObjectReducer<TState extends Record<string, any>, TData> = (data: TData, state: TState) => Partial<TState>;
+
+/**
+ * A selector that selects an item in a list
+ */
+export type ListSelector<TElement, TPayload, TData> = (data: TData, payload: TPayload) => (element: TElement) => boolean;

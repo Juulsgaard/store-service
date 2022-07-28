@@ -1,8 +1,9 @@
-import {listReducerScope, objectReducerScope, ReducerScope} from "../models/reducer-scope";
-import {ListReducer, ObjectReducer} from "../models/store-types";
+import {ActionReducerData, applyScopedObjectReducer, listReducerScope, objectReducerScope, ReducerScope} from "../models/reducer-scope";
+import {ListReducer, ListSelector, ObjectReducer} from "../models/store-types";
 import {StoreServiceContext} from "./command-config";
 import {DeferredCommand, DeferredCommandOptions} from "../commands/deferred-command";
 import {ArrayType, Conditional, KeysOfType} from "@consensus-labs/ts-tools";
+import {ActionCommand, ActionCommandOptions} from "../commands/action-command";
 
 /**
  * A base config that allows modification of an option object
@@ -83,6 +84,14 @@ export class DeferredCommandObjectConfig<TRoot, TState extends Record<string, an
   };
 
   /**
+   * Apply a modification to the payload before the reducer
+   * @param func - The data modification
+   */
+  modify<TModified>(func: (payload: TPayload, state: TState) => TModified): DeferredCommandObjectDataConfig<TRoot, TState, TPayload, TData, TModified> {
+    return new DeferredCommandObjectDataConfig(this.context, this.options, this.scope, func);
+  }
+
+  /**
    * Define the reducer for the active scope
    * @param reducer
    */
@@ -90,7 +99,11 @@ export class DeferredCommandObjectConfig<TRoot, TState extends Record<string, an
     return new DeferredCommand(
       this.context,
       this.options,
-      (root, data) => this.scope(root, data, state => ({...state, ...reducer(data, state)}))
+      (root, data) => this.scope(
+        root,
+        data,
+        state => applyScopedObjectReducer(state, reducer(data, state))
+      )
     );
   }
 }
@@ -115,15 +128,23 @@ class DeferredCommandListConfig<TRoot, TState extends TElement[], TElement, TPay
    * @param selector - The selector for the list item
    */
   targetItem(
-    selector: Conditional<TElement, Record<string, any>, (x: TElement, data: TPayload) => boolean>
+    selector: Conditional<TElement, Record<string, any>, ListSelector<TElement, TPayload, TPayload>>
   ): DeferredCommandObjectConfig<TRoot, TElement, TPayload, TData> {
     const path = [...this.path, '[]'];
     return new DeferredCommandObjectConfig(
       this.context,
       this.options,
-      listReducerScope(this.scope, selector, path),
+      listReducerScope(this.scope, (payload) => selector(payload, payload), path),
       path
     );
+  }
+
+  /**
+   * Apply a modification to the payload before the reducer
+   * @param func - The data modification
+   */
+  modify<TModified>(func: (payload: TPayload, state: TState) => TModified): DeferredCommandListDataConfig<TRoot, TState, TElement, TPayload, TData, TModified> {
+    return new DeferredCommandListDataConfig(this.context, this.options, this.scope, func);
   }
 
   /**
@@ -137,4 +158,69 @@ class DeferredCommandListConfig<TRoot, TState extends TElement[], TElement, TPay
       (root, data) => this.scope(root, data, state => reducer(data, state))
     );
   }
+}
+
+/**
+ * A config that represents a modified Deferred Command reducer
+ * Object scope
+ */
+class DeferredCommandObjectDataConfig<TRoot, TState extends Record<string, any>, TPayload, TData, TModified> extends DeferredCommandOptionConfig<TPayload, TData> {
+
+  constructor(
+    private context: StoreServiceContext<TRoot>,
+    options: DeferredCommandOptions<TPayload, TData>,
+    private scope: ReducerScope<TRoot, TState, TPayload>,
+    private modify: (payload: TPayload, state: TState) => TModified
+  ) {
+    super(options);
+  }
+
+  /**
+   * Define the reducer for the active scope
+   * @param reducer
+   */
+  withReducer(reducer: ObjectReducer<TState, TModified>): DeferredCommand<TRoot, TPayload, TData> {
+    return new DeferredCommand(
+      this.context,
+      this.options,
+      (root, data) => this.scope(
+        root,
+        data,
+        state => applyScopedObjectReducer(state, reducer(this.modify(data, state), state))
+      )
+    );
+  }
+}
+
+/**
+ * A config that represents a modified Deferred Command reducer
+ * List scope
+ */
+class DeferredCommandListDataConfig<TRoot, TState extends TElement[], TElement, TPayload, TData, TModified> extends DeferredCommandOptionConfig<TPayload, TData> {
+
+  constructor(
+    private context: StoreServiceContext<TRoot>,
+    options: DeferredCommandOptions<TPayload, TData>,
+    private scope: ReducerScope<TRoot, TState, TPayload>,
+    private modify: (payload: TPayload, state: TState) => TModified
+  ) {
+    super(options);
+  }
+
+  /**
+   * Define the reducer for the active scope
+   * @param reducer
+   */
+  withReducer(reducer: ListReducer<TState, TElement, TModified>): DeferredCommand<TRoot, TPayload, TData> {
+    return new DeferredCommand(
+      this.context,
+      this.options,
+      (root, data) => this.scope(
+        root,
+        data,
+        state => reducer(this.modify(data, state), state)
+      )
+    );
+  }
+
 }

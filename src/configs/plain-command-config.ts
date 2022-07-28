@@ -1,5 +1,5 @@
 import {listReducerScope, objectReducerScope, ReducerScope} from "../models/reducer-scope";
-import {ListReducer, ObjectReducer} from "../models/store-types";
+import {ListReducer, ListSelector, ObjectReducer} from "../models/store-types";
 import {PlainCommand} from "../commands/plain-command";
 import {StoreServiceContext} from "./command-config";
 import {ArrayType, Conditional, KeysOfType} from "@consensus-labs/ts-tools";
@@ -75,12 +75,12 @@ class PlainCommandListConfig<TRoot, TState extends TElement[], TElement, TData> 
    * @param selector - The selector for the list item
    */
   targetItem(
-    selector: Conditional<TElement, Record<string, any>, (x: TElement, data: TData) => boolean>
+    selector: Conditional<TElement, Record<string, any>, ListSelector<TElement, TData, TData>>
   ): PlainCommandObjectConfig<TRoot, TElement, TData> {
     const path = [...this.path, '[]'];
     return new PlainCommandObjectConfig(
       this.context,
-      listReducerScope<TRoot, TState, TElement, TData>(this.scope, selector, path),
+      listReducerScope<TRoot, TState, TElement, TData>(this.scope, (data) => selector(data, data), path),
       path
     );
   }

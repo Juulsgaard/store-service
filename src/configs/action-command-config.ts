@@ -1,10 +1,10 @@
 import {ActionCommand, ActionCommandOptions} from "../commands/action-command";
 import {
-  applyScopedObjectReducer, listReducerScope, ActionReducerData, objectReducerScope, ReducerScope, ActionReducerCoalesce, createActionReducerCoalesce
+  ActionReducerCoalesce, ActionReducerData, applyScopedObjectReducer, createActionReducerCoalesce, listReducerScope, objectReducerScope, ReducerScope
 } from "../models/reducer-scope";
-import {ListReducer, ObjectReducer} from "../models/store-types";
+import {ListReducer, ListSelector, ObjectReducer} from "../models/store-types";
 import {StoreServiceContext} from "./command-config";
-import {ArrayType, Conditional, KeysOfType} from "@consensus-labs/ts-tools";
+import {ArrayType, Conditional, KeysOfTypeOrNull, ValueOfKey} from "@consensus-labs/ts-tools";
 
 
 /**
@@ -129,10 +129,10 @@ export class ActionCommandObjectConfig<TRoot, TState extends Record<string, any>
    * @param key - The property name
    * @param coalesce - A default value to use if property isn't found
    */
-  targetProp<TKey extends KeysOfType<TState, Record<string, any>>>(
+  targetProp<TKey extends KeysOfTypeOrNull<TState, Record<string, any>>>(
     key: TKey,
-    coalesce?: ActionReducerCoalesce<TPayload, TData, TState[TKey]>
-  ): ActionCommandObjectConfig<TRoot, TState[TKey], TPayload, TData> {
+    coalesce?: ActionReducerCoalesce<TPayload, TData, ValueOfKey<TState, TKey>, TState>
+  ): ActionCommandObjectConfig<TRoot, ValueOfKey<TState, TKey>, TPayload, TData> {
     const path = [...this.path, key.toString()];
     return new ActionCommandObjectConfig(
       this.context,
@@ -147,10 +147,10 @@ export class ActionCommandObjectConfig<TRoot, TState extends Record<string, any>
    * @param key - The property name
    * @param create - Add list if it doesn't exist
    */
-  targetList<TKey extends KeysOfType<TState, any[]>>(
+  targetList<TKey extends KeysOfTypeOrNull<TState, any[]>>(
     key: TKey,
     create = false
-  ): ActionCommandListConfig<TRoot, TState[TKey], ArrayType<TState[TKey]>, TPayload, TData> {
+  ): ActionCommandListConfig<TRoot, ValueOfKey<TState, TKey>, ArrayType<ValueOfKey<TState, TKey>>, TPayload, TData> {
     const path = [...this.path, key.toString()];
     return new ActionCommandListConfig(
       this.context,
@@ -164,7 +164,7 @@ export class ActionCommandObjectConfig<TRoot, TState extends Record<string, any>
    * Apply a modification to the payload / data before the reducer
    * @param func - The data modification
    */
-  modify<TModified>(func: (data: TData, payload: TPayload) => TModified): ActionCommandObjectDataConfig<TRoot, TState, TPayload, TData, TModified> {
+  modify<TModified>(func: (data: TData, payload: TPayload, state: TState) => TModified): ActionCommandObjectDataConfig<TRoot, TState, TPayload, TData, TModified> {
     return new ActionCommandObjectDataConfig(this.context, this.options, this.scope, func);
   }
 
@@ -213,17 +213,19 @@ class ActionCommandListConfig<TRoot, TState extends TElement[], TElement, TPaylo
    * @param coalesce - A default value to append if item isn't found
    */
   targetItem(
-    selector: Conditional<TElement, Record<string, any>, (x: TElement, data: TData, payload: TPayload) => boolean>,
-    coalesce?: ActionReducerCoalesce<TPayload, TData, TElement>
+    selector: Conditional<TElement, Record<string, any>, ListSelector<TElement, TPayload, TData>>,
+    coalesce?: ActionReducerCoalesce<TPayload, TData, TElement, TState>
   ): ActionCommandObjectConfig<TRoot, TElement, TPayload, TData> {
     const path = [...this.path, '[]'];
     return new ActionCommandObjectConfig(
       this.context,
       this.options,
-      listReducerScope(this.scope, (x, {
-        data,
-        payload
-      }) => selector(x, data, payload), path, createActionReducerCoalesce(coalesce)),
+      listReducerScope(
+        this.scope,
+        ({data, payload}) => selector(data, payload),
+        path,
+        createActionReducerCoalesce(coalesce)
+      ),
       path
     );
   }
@@ -243,7 +245,7 @@ class ActionCommandListConfig<TRoot, TState extends TElement[], TElement, TPaylo
    * Apply a modification to the payload / data before the reducer
    * @param func - The data modification
    */
-  modify<TModified>(func: (data: TData, payload: TPayload) => TModified): ActionCommandListDataConfig<TRoot, TState, TElement, TPayload, TData, TModified> {
+  modify<TModified>(func: (data: TData, payload: TPayload, state: TState) => TModified): ActionCommandListDataConfig<TRoot, TState, TElement, TPayload, TData, TModified> {
     return new ActionCommandListDataConfig(this.context, this.options, this.scope, func);
   }
 
@@ -277,7 +279,7 @@ class ActionCommandObjectDataConfig<TRoot, TState extends Record<string, any>, T
     private context: StoreServiceContext<TRoot>,
     options: ActionCommandOptions<TPayload, TData>,
     private scope: ReducerScope<TRoot, TState, ActionReducerData<TPayload, TData>>,
-    private modify: (data: TData, payload: TPayload) => TModified
+    private modify: (data: TData, payload: TPayload, state: TState) => TModified
   ) {
     super(options);
   }
@@ -293,7 +295,7 @@ class ActionCommandObjectDataConfig<TRoot, TState extends Record<string, any>, T
       (root, data, payload) => this.scope(
         root,
         {data, payload},
-        state => applyScopedObjectReducer(state, reducer(this.modify(data, payload), state))
+        state => applyScopedObjectReducer(state, reducer(this.modify(data, payload, state), state))
       )
     );
   }
@@ -309,7 +311,7 @@ class ActionCommandListDataConfig<TRoot, TState extends TElement[], TElement, TP
     private context: StoreServiceContext<TRoot>,
     options: ActionCommandOptions<TPayload, TData>,
     private scope: ReducerScope<TRoot, TState, ActionReducerData<TPayload, TData>>,
-    private modify: (data: TData, payload: TPayload) => TModified
+    private modify: (data: TData, payload: TPayload, state: TState) => TModified
   ) {
     super(options);
   }
@@ -325,7 +327,7 @@ class ActionCommandListDataConfig<TRoot, TState extends TElement[], TElement, TP
       (root, data, payload) => this.scope(
         root,
         {data, payload},
-        state => reducer(this.modify(data, payload), state)
+        state => reducer(this.modify(data, payload, state), state)
       )
     );
   }
