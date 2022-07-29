@@ -137,7 +137,7 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
   };
 
   private logRetry(attempt: number, nextDelay: number) {
-    this.context.logActionRetry(`Failed to execute "${this.name}" [Attempt #${attempt + 1}]. Retrying in ${nextDelay}ms`);
+    this.context.logActionRetry(this.name, attempt, nextDelay);
   }
 
   /**

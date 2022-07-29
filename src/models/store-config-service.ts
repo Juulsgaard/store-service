@@ -16,5 +16,5 @@ export interface IStoreConfigService {
    */
   errorIsCritical(error: any): boolean;
 
-  logActionRetry(message: string): void;
+  logActionRetry(command: string, attempt: number, nextDelay: number): void;
 }

@@ -18,7 +18,7 @@ export interface StoreServiceContext<TState> {
 
   displaySuccess(message: string): void;
 
-  logActionRetry(message: string): void;
+  logActionRetry(command: string, attempt: number, nextDelay: number): void;
 
   displayError(message: string|undefined, error: Error): void;
 
