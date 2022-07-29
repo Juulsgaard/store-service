@@ -15,4 +15,6 @@ export interface IStoreConfigService {
    * @param error
    */
   errorIsCritical(error: any): boolean;
+
+  logActionRetry(message: string): void;
 }

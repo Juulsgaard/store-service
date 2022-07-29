@@ -5,7 +5,8 @@ import {map} from "rxjs/operators";
 export function retryAction<TData>(
   action: () => TData | Promise<TData> | Observable<TData>,
   retries: number[],
-  isCritical: (error: any) => boolean
+  isCritical: (error: any) => boolean,
+  logRetry?: (attempt: number, nextDelay: number) => void
 ): () => Observable<TData> {
   return () => {
     return of(action).pipe(
@@ -20,6 +21,7 @@ export function retryAction<TData>(
           if (isCritical(error)) return throwError(() => error);
           const delay = retries[i];
           if (delay === undefined) return throwError(() => error);
+          logRetry?.(i, delay);
           return timer(delay);
         }
       })

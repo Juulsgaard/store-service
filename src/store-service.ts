@@ -87,6 +87,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
     getFailureState$: (cmd: StoreCommand<TState>, requestId?: string) => this.getFailureState$(cmd, requestId).asObservable(),
     displayError: (msg, error) => this.configService.displayError(msg, error),
     displaySuccess: (message: string) => this.configService.displaySuccess(message),
+    logActionRetry: (message: string) => this.configService.logActionRetry(message),
     startLoad: (cmd: StoreCommand<TState>, requestId?: string) => {
       this.startLoad(cmd);
       if (requestId) this.startLoad(cmd, requestId)

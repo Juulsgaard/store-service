@@ -11,11 +11,14 @@ import {StoreCommand} from "../models/base-commands";
  * A context element allowing commands to interface with the store
  */
 export interface StoreServiceContext<TState> {
+
   getCommandName(cmd: StoreCommand<TState>): string;
 
   applyCommand(action: QueueAction<TState>): void;
 
   displaySuccess(message: string): void;
+
+  logActionRetry(message: string): void;
 
   displayError(message: string|undefined, error: Error): void;
 

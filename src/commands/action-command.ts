@@ -95,7 +95,9 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
     // Create a delayed loading state
     const action = () => this.options.action(payload);
     const loadState = LoadingState.Delayed(
-      this.options.retries ? retryAction(action, this.options.retries, this.context.errorIsCritical) : action,
+      this.options.retries
+        ? retryAction(action, this.options.retries, this.context.errorIsCritical, this.logRetry.bind(this))
+        : action,
       this.options.modify
     );
 
@@ -133,6 +135,10 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
 
     return loadState;
   };
+
+  private logRetry(attempt: number, nextDelay: number) {
+    this.context.logActionRetry(`Failed to execute "${this.name}" [Attempt #${attempt + 1}]. Retrying in ${nextDelay}ms`);
+  }
 
   /**
    * Handle a successful action
