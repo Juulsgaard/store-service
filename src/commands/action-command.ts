@@ -1,13 +1,13 @@
-import {EMPTY, of, tap} from "rxjs";
+import {tap} from "rxjs";
 import {logFailedAction, logSuccessfulAction} from "../models/logging";
 import {CommandAction} from "../models/store-types";
-import {ActionCommandError, InitialLoadError} from "../models/errors";
-import {catchError, map} from "rxjs/operators";
+import {InitialLoadError} from "../models/errors";
+import {map} from "rxjs/operators";
 import {StoreServiceContext} from "../configs/command-config";
 import {LoadingState} from "../loading-state";
 import {QueueAction} from "../models/queue-action";
 import {retryAction} from "../utils/retry";
-import {PayloadCommand, StoreCommand} from "../models/base-commands";
+import {PayloadCommand} from "../models/base-commands";
 
 
 /**

@@ -1,4 +1,3 @@
-import {CommandAction} from "../models/store-types";
 import {from, isObservable, Observable, of, retry, switchMap, throwError, timer} from "rxjs";
 import {map} from "rxjs/operators";
 

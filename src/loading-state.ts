@@ -1,10 +1,6 @@
 import {
   BehaviorSubject, EMPTY, from, isObservable, lastValueFrom, Observable, Observer, of, ReplaySubject, shareReplay, startWith, Subject, Subscribable,
-  Subscription,
-  switchMap,
-  tap,
-  throwError,
-  Unsubscribable
+  Subscription, switchMap, tap, throwError, Unsubscribable
 } from "rxjs";
 import {first, map} from "rxjs/operators";
 import {CancelledError} from "./models/errors";

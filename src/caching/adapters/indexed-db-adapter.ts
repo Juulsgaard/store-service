@@ -1,6 +1,5 @@
 import {CacheAdapter, CacheItemData, CacheTransactionAdapter} from "../caching-adapter";
 import {sleep} from "@consensus-labs/ts-tools";
-import {IDBFactory} from "fake-indexeddb";
 
 export class IndexedDbAdapter implements CacheAdapter {
 
