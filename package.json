@@ -1,6 +1,6 @@
 {
   "name": "@consensus-labs/store-service",
-  "version": "1.2.0-11",
+  "version": "1.2.1",
   "description": "A state management system for Javascript",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -16,7 +16,7 @@
     "@consensus-labs:registry": "https://gitlab.com/api/v4/projects/36878880/packages/npm/"
   },
   "devDependencies": {
-    "@consensus-labs/ts-tools": "1.0.8",
+    "@consensus-labs/ts-tools": "1.1.0",
     "@types/jest": "^28.1.1",
     "cross-env": "^7.0.3",
     "fake-indexeddb": "^4.0.0",
@@ -34,7 +34,7 @@
     "link": "npm run prepublishOnly && yalc push"
   },
   "peerDependencies": {
-    "@consensus-labs/ts-tools": "^1.0.8",
+    "@consensus-labs/ts-tools": "^1.1.0",
     "rxjs": "^7.4.0"
   }
 }

@@ -284,10 +284,10 @@
   resolved "https://registry.npmjs.org/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
-"@consensus-labs/ts-tools@1.0.8":
-  version "1.0.8"
-  resolved "https://gitlab.com/api/v4/projects/36928519/packages/npm/@consensus-labs/ts-tools/-/@consensus-labs/ts-tools-1.0.8.tgz#d88a7d7c08c03fbc4f2f021af4688b9b558addd1"
-  integrity sha1-2Ip9fAjAP7xPLwIa9GiLm1WK3dE=
+"@consensus-labs/ts-tools@1.1.0":
+  version "1.1.0"
+  resolved "https://gitlab.com/api/v4/projects/36928519/packages/npm/@consensus-labs/ts-tools/-/@consensus-labs/ts-tools-1.1.0.tgz#cb8d8e257c32580b9bd7785c3311cdd8f87e36e8"
+  integrity sha1-y42OJXwyWAub13hcMxHN2Ph+Nug=
 
 "@istanbuljs/load-nyc-config@^1.0.0":
   version "1.1.0"
