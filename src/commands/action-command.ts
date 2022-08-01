@@ -6,7 +6,7 @@ import {map} from "rxjs/operators";
 import {StoreServiceContext} from "../configs/command-config";
 import {LoadingState} from "../loading-state";
 import {QueueAction} from "../models/queue-action";
-import {retryAction} from "../utils/retry";
+import {retryAction} from "../lib/retry";
 import {PayloadCommand} from "../models/base-commands";
 
 

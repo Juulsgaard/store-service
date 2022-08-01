@@ -2,7 +2,7 @@ import {Observable} from "rxjs";
 import {map} from "rxjs/operators";
 import {CacheChunkContext, CacheDatabaseContext} from "./caching-interface";
 import {CacheChunk} from "./cache-chunk";
-import {IdMap, parseIdMap} from "../utils/id-map";
+import {IdMap, parseIdMap} from "../lib/id-map";
 
 export class CacheConfig<TState> {
   constructor(private chunkId: string, private version: number, private databaseContext: CacheDatabaseContext, private states$: Observable<Observable<TState>>) {

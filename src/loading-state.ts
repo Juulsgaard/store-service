@@ -4,6 +4,7 @@ import {
 } from "rxjs";
 import {first, map} from "rxjs/operators";
 import {CancelledError} from "./models/errors";
+import {permanentCache} from "@consensus-labs/rxjs-tools";
 
 /**
  * The base loading state
@@ -150,12 +151,12 @@ export class LoadingState<TData> implements ILoadingState {
         },
         complete: () => subscriber.complete()
       })
-    }).pipe(shareReplay(1));
+    }).pipe(permanentCache());
 
     this.failed$ = this.error$.pipe(
       map(() => true),
       startWith(false)
-    ).pipe(shareReplay(1));
+    ).pipe(permanentCache());
 
     if (data instanceof Promise) {
       this.isAsync = true;

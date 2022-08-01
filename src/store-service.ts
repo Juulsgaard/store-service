@@ -6,6 +6,7 @@ import {map} from "rxjs/operators";
 import {arrToMap, deepCopy, deepFreeze, titleCase} from "@consensus-labs/ts-tools";
 import {QueueAction} from "./models/queue-action";
 import {StoreCommand} from "./models/base-commands";
+import {cache} from "@consensus-labs/rxjs-tools";
 
 /**
  * A service managing the store state
@@ -118,7 +119,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
   protected constructor(private initialState: TState, private configService: IStoreConfigService) {
     this._state$ = new BehaviorSubject(this.freeze(deepCopy(initialState)));
     this.state$ = this._state$.pipe(
-      shareReplay({bufferSize: 1, refCount: true})
+      cache()
     );
     this.storeName = titleCase(this.constructor.name);
 
@@ -424,13 +425,13 @@ export abstract class StoreService<TState extends Record<string, any>> {
     if (isObservable(pipe)) {
       return pipe.pipe(
         distinctUntilChanged(),
-        shareReplay({bufferSize: 1, refCount: true})
+        cache()
       );
     }
 
     return pipe(this.state$).pipe(
       distinctUntilChanged(),
-      shareReplay({bufferSize: 1, refCount: true})
+      cache()
     );
   }
 
@@ -471,7 +472,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
           // Remove the observable when it's no longer used
           tap({finalize: () => lookup.delete(id)}),
           // Multicast the selector
-          shareReplay({bufferSize: 1, refCount: true})
+          cache()
         );
         lookup.set(id, selector);
       }

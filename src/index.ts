@@ -9,3 +9,6 @@ export {CacheItemData, CacheAdapter, CacheTransactionAdapter} from './caching/ca
 export {CacheDatabaseContext} from './caching/caching-interface'
 export {IndexedDbAdapter} from './caching/adapters/indexed-db-adapter'
 export * from './models/errors'
+
+export * from './utils/load-operators'
+export * from './utils/future-operators'

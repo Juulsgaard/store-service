@@ -10,7 +10,7 @@ import {CacheChunk} from "../caching/cache-chunk";
 import {PlainCommand} from "../commands/plain-command";
 import {tap} from "rxjs";
 import {ActionCommandUnion, StoreCommandUnion} from "../models/base-commands";
-import {IdMap, parseIdMap} from "../utils/id-map";
+import {IdMap, parseIdMap} from "../lib/id-map";
 
 
 export class CacheCommandConfig<TState extends Record<string, any>, TCache> {

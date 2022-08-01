@@ -284,6 +284,11 @@
   resolved "https://registry.npmjs.org/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
+"@consensus-labs/rxjs-tools@1.0.1":
+  version "1.0.1"
+  resolved "https://gitlab.com/api/v4/projects/38260126/packages/npm/@consensus-labs/rxjs-tools/-/@consensus-labs/rxjs-tools-1.0.1.tgz#03847b7f144e8e685487aecf12d3494a25bd702f"
+  integrity sha1-A4R7fxROjmhUh67PEtNJSiW9cC8=
+
 "@consensus-labs/ts-tools@1.1.0":
   version "1.1.0"
   resolved "https://gitlab.com/api/v4/projects/36928519/packages/npm/@consensus-labs/ts-tools/-/@consensus-labs/ts-tools-1.1.0.tgz#cb8d8e257c32580b9bd7785c3311cdd8f87e36e8"
