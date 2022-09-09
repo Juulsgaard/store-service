@@ -20,6 +20,7 @@ export class CacheChunk<TChunk> {
   private stateChanges$ = new Subject<Changes<TChunk>>();
   private manualChanges$ = new Subject<Changes<TChunk>>();
   private changeSub?: Subscription;
+  private mainSub: Subscription;
 
   constructor(
     private chunks$: Observable<Observable<TChunk[]>>,
@@ -27,7 +28,7 @@ export class CacheChunk<TChunk> {
     private getId: (chunk: TChunk) => string,
     private getTags?: (chunk: TChunk) => string[]
   ) {
-    this.chunks$.pipe(
+    this.mainSub = this.chunks$.pipe(
       // Reset every time a new state observable is emitted
       tap(() => this.reset()),
       switchMap(state$ => state$.pipe(
@@ -45,6 +46,20 @@ export class CacheChunk<TChunk> {
         })
       ))
     ).subscribe(this.stateChanges$);
+
+    // Cancel chunk if database isn't available
+    this.context.isAvailable().then(
+      available => !available && this.cancel(),
+      () => this.cancel()
+    );
+  }
+
+  /** Shut down chunk if database is not available */
+  private cancel() {
+    this.mainSub.unsubscribe();
+    this.changeSub?.unsubscribe();
+    this.stateChanges$.complete();
+    this.manualChanges$.complete();
   }
 
   private reset() {
@@ -97,6 +112,8 @@ export class CacheChunk<TChunk> {
   }
 
   private async applyChanges(changes: Changes<TChunk>) {
+
+    if (!await this.context.isAvailable()) return;
 
     await this.context.useTransaction(async trx => {
       for (let {id, data} of changes?.added ?? []) {
@@ -169,7 +186,7 @@ export class CacheChunk<TChunk> {
       values$ = from(this.readAll()).pipe(
         map(list => {
 
-          // Get oldest date
+          // Get the oldest date
           const oldest = list.reduce((state: number, x: CacheItemData<TChunk>) => {
               const time = (options.absoluteAge ? x.createdAt : x.updatedAt).getTime();
               if (time < state) return time;
@@ -199,6 +216,7 @@ export class CacheChunk<TChunk> {
    * @param id
    */
   async readItem(id: string): Promise<CacheItemData<TChunk> | undefined> {
+    if (!await this.context.isAvailable()) return undefined;
     return await this.context.useTransaction(trx => trx.readValue(id), true);
   }
 
@@ -206,16 +224,22 @@ export class CacheChunk<TChunk> {
    * Read all values from the cache
    */
   async readAll(): Promise<CacheItemData<TChunk>[]> {
+    if (!await this.context.isAvailable()) return [];
     return this.context.useTransaction(trx => trx.readAllValues(), true);
   }
 
   //</editor-fold>
 
+  private emitManualChanges(changes: Changes<TChunk>) {
+    if (!this.manualChanges$.closed) return;
+    this.manualChanges$.next(changes);
+  }
+
   resetItemAge(id: string) {
-    this.manualChanges$.next({ageChanged: [{id, newAge: new Date()}]});
+    this.emitManualChanges({ageChanged: [{id, newAge: new Date()}]});
   }
 
   clearTag(tag: string) {
-    this.manualChanges$.next({removedTags: [{id: tag}]});
+    this.emitManualChanges({removedTags: [{id: tag}]});
   }
 }

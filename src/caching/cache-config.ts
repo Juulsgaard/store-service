@@ -11,8 +11,6 @@ export class CacheConfig<TState> {
   withChunks<TChunk>(chunk: (state: TState) => TChunk[]): CacheChunkConfig<TChunk> {
     const context = this.databaseContext.getChunk<TChunk>(this.chunkId, this.version);
 
-    context.init().catch(e => console.error('Failed to initialise Cache Chunk', e));
-
     const chunks$ = this.states$.pipe(map(state$ => state$.pipe(map(chunk))));
 
     return new CacheChunkConfig<TChunk>(context, chunks$);
@@ -20,8 +18,6 @@ export class CacheConfig<TState> {
 
   singleChunk<TChunk>(chunk: (state: TState) => TChunk): CacheChunk<TChunk> {
     const context = this.databaseContext.getChunk<TChunk>(this.chunkId, this.version);
-
-    context.init().catch(e => console.error('Failed to initialise Cache Chunk', e));
 
     const chunks$ = this.states$.pipe(map(state$ => state$.pipe(
       map(x => {

@@ -9,12 +9,31 @@ export class CacheDatabaseContext {
   private transactionQueue?: Subject<CacheTransaction>;
   private transactionSub?: Subscription;
 
+  private _available?: Promise<boolean>;
+  private _error?: string;
+  get error() {return this._error ?? `Can't access IndexedDB`}
+
   constructor(private adapter: CacheAdapter, private databaseId: string) {
     this.setupQueue();
   }
 
   reset() {
     this.setupQueue();
+  }
+
+  async isAvailable() {
+    if (this._available != null) return await this._available;
+    this._available = this.adapter.isAvailable(err => this._error = err);
+    this._available.then(available => {
+      if (available) return;
+      console.warn(`Database "${this.databaseId}" is not available`, this.error)
+    });
+    return await this._available;
+  }
+
+  private async verifyAvailable() {
+    if (await this.isAvailable()) return;
+    throw Error(this.error);
   }
 
   private setupQueue() {
@@ -33,11 +52,13 @@ export class CacheDatabaseContext {
   }
 
   private async _init() {
+    await this.verifyAvailable();
     await this.adapter.createDatabase(this.databaseId);
   }
 
   async delete() {
-    await this.initialising;
+    if (this.initialising) await this.initialising;
+    else await this.verifyAvailable();
 
     // Stop new transactions while deleting
     this.transactionSub?.unsubscribe();
@@ -121,16 +142,20 @@ class CacheTransaction {
 export class CacheChunkContext<TChunk> {
 
   private initialising?: Promise<void>;
-  private transactions = new Set<Subject<void>>();
+  private transactionTriggers = new Set<Subject<void>>();
 
   constructor(private adapter: CacheAdapter, private databaseId: string, private chunkId: string, private version: number, private database: CacheDatabaseContext) {
 
   }
 
+  async isAvailable() {
+    return await this.database.isAvailable();
+  }
+
   reset() {
     // Trigger all transactions cancel triggers to remove them from the queue
-    this.transactions.forEach(x => x.next());
-    this.transactions.clear();
+    this.transactionTriggers.forEach(x => x.next());
+    this.transactionTriggers.clear();
   }
 
   async init(): Promise<void> {
@@ -154,7 +179,7 @@ export class CacheChunkContext<TChunk> {
 
     // Register a cancel trigger for canceling the transaction
     const cancel$ = new Subject<void>();
-    this.transactions.add(cancel$);
+    this.transactionTriggers.add(cancel$);
 
     return await this.database.useTransaction(trx => {
       try {
@@ -164,7 +189,7 @@ export class CacheChunkContext<TChunk> {
 
         // Transaction finished, remove cancel trigger
         cancel$.complete();
-        this.transactions.delete(cancel$);
+        this.transactionTriggers.delete(cancel$);
       }
     }, readonly, cancel$);
   }

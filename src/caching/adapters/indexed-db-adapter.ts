@@ -9,9 +9,27 @@ export class IndexedDbAdapter implements CacheAdapter {
   private databases = new Map<string, Promise<IDBDatabase>>();
 
   constructor() {
+
+  }
+
+  async isAvailable(setError?: (error: string) => void): Promise<boolean> {
     if (!indexedDB) {
-      throw Error("Your browser doesn't support a stable version of IndexedDB")
+      setError?.(`Your browser doesn't support a stable version of IndexedDB`);
+      return false;
     }
+
+    try {
+      await new Promise<boolean>((resolve, reject) => {
+        const request = indexedDB.open('_test_', 1);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(true);
+      });
+    } catch (e: any) {
+      setError?.(e.message);
+      return false;
+    }
+
+    return true;
   }
 
   createDatabase(id: string): Promise<boolean> {
@@ -20,7 +38,7 @@ export class IndexedDbAdapter implements CacheAdapter {
     const db = new Promise<IDBDatabase>((resolve, reject) => {
 
       const request = indexedDB.open(`${IndexedDbAdapter.dbPrefix}${id}`, IndexedDbAdapter.version);
-      request.onerror = err => reject(err);
+      request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const db = request.result;
         db.onversionchange = () => db.close();
@@ -47,7 +65,7 @@ export class IndexedDbAdapter implements CacheAdapter {
   deleteDatabase(id: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
       const request = indexedDB.deleteDatabase(`${IndexedDbAdapter.dbPrefix}${id}`);
-      request.onerror = err => reject(err);
+      request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         this.databases.delete(id);
         resolve(true);
@@ -80,7 +98,7 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
     return new Promise((resolve, reject) => {
       const request = this.transaction.objectStore('versions').get(chunkId) as IDBRequest<VersionData | undefined>;
       request.onsuccess = () => resolve(request.result?.version);
-      request.onerror = err => reject(err)
+      request.onerror = () => reject(request.error);
     });
   }
 
@@ -92,7 +110,7 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
         .put({version, chunkId: chunkId} as VersionData);
 
       request.onsuccess = () => resolve(true);
-      request.onerror = err => reject(err)
+      request.onerror = () => reject(request.error);
     });
   }
 
@@ -102,11 +120,11 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
     return new Promise((resolve, reject) => {
       const request = this.transaction.objectStore('versions').delete(chunkId);
 
-      request.onerror = err => reject(err)
+      request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const request = this.transaction.objectStore('chunks').index('chunkId').openCursor(chunkId);
 
-        request.onerror = err => reject(err)
+        request.onerror = () => reject(request.error);
         request.onsuccess = () => {
           const cursor = request.result;
           if (!cursor) return resolve(true);
@@ -122,7 +140,7 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
     return new Promise((resolve, reject) => {
       const request = this.transaction.objectStore('chunks').get(this.getValueKey(chunkId, id)) as IDBRequest<ValueData<TData> | undefined>;
 
-      request.onerror = err => reject(err)
+      request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const data = request.result;
         if (!data) return resolve(undefined);
@@ -135,7 +153,7 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
     return new Promise((resolve, reject) => {
       const request = this.transaction.objectStore('chunks').index('chunkId').getAll(chunkId) as IDBRequest<ValueData<TData>[]>;
 
-      request.onerror = err => reject(err)
+      request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const list = request.result;
         resolve(list.map(data => ({
@@ -164,7 +182,7 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
         this.getValueKey(chunkId, id)
       );
 
-      request.onerror = err => reject(err)
+      request.onerror = () => reject(request.error)
       request.onsuccess = () => resolve();
     });
   }
@@ -175,7 +193,7 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
     return new Promise((resolve, reject) => {
       const request = this.transaction.objectStore('chunks').delete(this.getValueKey(chunkId, id));
 
-      request.onerror = err => reject(err)
+      request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve();
     });
   }
@@ -185,7 +203,7 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
     return new Promise((resolve, reject) => {
       const request = this.transaction.objectStore('chunks').index('tags').openCursor(IDBKeyRange.only(tag));
 
-      request.onerror = err => reject(err)
+      request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const cursor = request.result;
         if (!cursor) return resolve();
@@ -201,7 +219,7 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
     return new Promise((resolve, reject) => {
       const request = this.transaction.objectStore('chunks').openCursor(this.getValueKey(chunkId, id));
 
-      request.onerror = err => reject(err)
+      request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const cursor = request.result;
         if (!cursor) {
@@ -220,7 +238,7 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
           tags: oldVal.tags,
         } as ValueData<TData>);
 
-        update.onerror = err => reject(err)
+        update.onerror = () => reject(update.error);
         update.onsuccess = () => resolve();
       };
     });
@@ -232,7 +250,7 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
     return new Promise((resolve, reject) => {
       const request = this.transaction.objectStore('chunks').openCursor(this.getValueKey(chunkId, id));
 
-      request.onerror = err => reject(err)
+      request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const cursor = request.result;
         if (!cursor) {
@@ -251,7 +269,7 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
           tags: oldVal.tags,
         } as ValueData<TData>);
 
-        update.onerror = err => reject(err)
+        update.onerror = () => reject(update.error);
         update.onsuccess = () => resolve();
       };
     });

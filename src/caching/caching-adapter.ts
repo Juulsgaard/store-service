@@ -8,6 +8,8 @@ export interface CacheItemData<TData> {
 
 export interface CacheAdapter {
 
+  isAvailable(setError?: (error: string) => void): Promise<boolean>;
+
   createDatabase(id: string): Promise<boolean>;
 
   deleteDatabase(id: string): Promise<boolean>;
