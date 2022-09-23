@@ -3,7 +3,7 @@ import {
   ActionReducerCoalesce, ActionReducerData, applyScopedObjectReducer, createActionReducerCoalesce, listReducerScope, objectReducerScope, ReducerScope,
   rootReducerScope
 } from "../models/reducer-scope";
-import {ArrayType, Conditional, KeysOfTypeOrNull, ValueOfKey} from "@consensus-labs/ts-tools";
+import {ArrayType, Conditional, KeysOfTypeOrNull, SimpleObject, ValueOfKey} from "@consensus-labs/ts-tools";
 import {ListReducer, ListSelector, ObjectReducer} from "../models/store-types";
 import {CacheCommand, CacheCommandOptions} from "../commands/cache-command";
 import {CacheChunk} from "../caching/cache-chunk";
@@ -194,10 +194,10 @@ class CacheCommandObjectConfig<TRoot, TState extends Record<string, any>, TPaylo
    * @param key - The property name
    * @param create - Add list if it doesn't exist
    */
-  targetList<TKey extends KeysOfTypeOrNull<TState, any[]>>(
+  targetList<TKey extends KeysOfTypeOrNull<TState, SimpleObject[]>>(
     key: TKey,
     create = false
-  ): CacheCommandListConfig<TRoot, ValueOfKey<TState, TKey>, ArrayType<ValueOfKey<TState, TKey>>, TPayload, TData> {
+  ): CacheCommandListConfig<TRoot, ValueOfKey<TState, TKey>, ArrayType<ValueOfKey<TState, TKey>>&SimpleObject, TPayload, TData> {
     const path = [...this.path, key.toString()];
     return new CacheCommandListConfig(
       this.context,
@@ -243,7 +243,7 @@ class CacheCommandObjectConfig<TRoot, TState extends Record<string, any>, TPaylo
  * A config for building the Cache Command reducer
  * List scoped
  */
-class CacheCommandListConfig<TRoot, TState extends TElement[], TElement, TPayload, TData> extends CacheCommandOptionConfig<TPayload, TData> {
+class CacheCommandListConfig<TRoot, TState extends TElement[], TElement extends SimpleObject, TPayload, TData> extends CacheCommandOptionConfig<TPayload, TData> {
 
   constructor(
     private context: StoreServiceContext<TRoot>,

@@ -6,6 +6,7 @@ import {rootReducerScope} from "../models/reducer-scope";
 import {PlainCommandObjectConfig} from "./plain-command-config";
 import {QueueAction} from "../models/queue-action";
 import {StoreCommand} from "../models/base-commands";
+import {SimpleObject} from "@consensus-labs/ts-tools";
 
 /**
  * A context element allowing commands to interface with the store
@@ -41,7 +42,7 @@ export interface StoreServiceContext<TState> {
   errorIsCritical: (error: any) => boolean;
 }
 
-export class StoreCommandConfig<TState> {
+export class StoreCommandConfig<TState extends SimpleObject> {
 
   constructor(private context: StoreServiceContext<TState>) {
   }
@@ -93,7 +94,7 @@ export class StoreCommandConfig<TState> {
   }
 }
 
-export class StoreClientCommandConfig<TState, TClient> {
+export class StoreClientCommandConfig<TState extends SimpleObject, TClient> {
 
   constructor(private context: StoreServiceContext<TState>, private client: TClient) {
   }

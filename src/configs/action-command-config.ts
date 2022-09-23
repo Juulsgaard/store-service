@@ -4,7 +4,7 @@ import {
 } from "../models/reducer-scope";
 import {ListReducer, ListSelector, ObjectReducer} from "../models/store-types";
 import {StoreServiceContext} from "./command-config";
-import {ArrayType, Conditional, KeysOfTypeOrNull, ValueOfKey} from "@consensus-labs/ts-tools";
+import {ArrayType, Conditional, KeysOfTypeOrNull, SimpleObject, ValueOfKey} from "@consensus-labs/ts-tools";
 
 
 /**
@@ -147,10 +147,10 @@ export class ActionCommandObjectConfig<TRoot, TState extends Record<string, any>
    * @param key - The property name
    * @param create - Add list if it doesn't exist
    */
-  targetList<TKey extends KeysOfTypeOrNull<TState, any[]>>(
+  targetList<TKey extends KeysOfTypeOrNull<TState, SimpleObject[]>>(
     key: TKey,
     create = false
-  ): ActionCommandListConfig<TRoot, ValueOfKey<TState, TKey>, ArrayType<ValueOfKey<TState, TKey>>, TPayload, TData> {
+  ): ActionCommandListConfig<TRoot, ValueOfKey<TState, TKey>, ArrayType<ValueOfKey<TState, TKey>>&SimpleObject, TPayload, TData> {
     const path = [...this.path, key.toString()];
     return new ActionCommandListConfig(
       this.context,
@@ -196,7 +196,7 @@ export class ActionCommandObjectConfig<TRoot, TState extends Record<string, any>
  * A config for building the Action Command reducer
  * List scoped
  */
-class ActionCommandListConfig<TRoot, TState extends TElement[], TElement, TPayload, TData> extends ActionCommandOptionConfig<TPayload, TData> {
+class ActionCommandListConfig<TRoot, TState extends TElement[], TElement extends SimpleObject, TPayload, TData> extends ActionCommandOptionConfig<TPayload, TData> {
 
   constructor(
     private context: StoreServiceContext<TRoot>,

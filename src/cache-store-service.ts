@@ -1,6 +1,6 @@
 import {StoreService} from "./store-service";
 import {IStoreConfigService} from "./models/store-config-service";
-import {dashCase} from "@consensus-labs/ts-tools";
+import {dashCase, SimpleObject} from "@consensus-labs/ts-tools";
 import {CacheDatabaseContext} from "./caching/caching-interface";
 import {CacheConfig} from "./caching/cache-config";
 import {Observable, ReplaySubject, skip} from "rxjs";
@@ -8,7 +8,7 @@ import {CacheChunk} from "./caching/cache-chunk";
 import {CacheCommandConfig} from "./configs/cache-command-config";
 
 
-export abstract class CacheStoreService<TState> extends StoreService<TState> {
+export abstract class CacheStoreService<TState extends SimpleObject> extends StoreService<TState> {
 
   /**
    * Generated Id for the store

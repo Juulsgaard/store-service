@@ -2,7 +2,7 @@ import {applyScopedObjectReducer, listReducerScope, objectReducerScope, ReducerS
 import {ListReducer, ListSelector, ObjectReducer} from "../models/store-types";
 import {StoreServiceContext} from "./command-config";
 import {DeferredCommand, DeferredCommandOptions} from "../commands/deferred-command";
-import {ArrayType, Conditional, KeysOfType} from "@consensus-labs/ts-tools";
+import {ArrayType, Conditional, KeysOfType, SimpleObject} from "@consensus-labs/ts-tools";
 
 /**
  * A base config that allows modification of an option object
@@ -72,7 +72,7 @@ export class DeferredCommandObjectConfig<TRoot, TState extends Record<string, an
    * Target a list property on the object
    * @param key - The property name
    */
-  targetList<TKey extends KeysOfType<TState, any[]>>(key: TKey): DeferredCommandListConfig<TRoot, TState[TKey], ArrayType<TState[TKey]>, TPayload, TData> {
+  targetList<TKey extends KeysOfType<TState, SimpleObject[]>>(key: TKey): DeferredCommandListConfig<TRoot, TState[TKey], ArrayType<TState[TKey]>&SimpleObject, TPayload, TData> {
     const path = [...this.path, key.toString()];
     return new DeferredCommandListConfig(
       this.context,
@@ -111,7 +111,7 @@ export class DeferredCommandObjectConfig<TRoot, TState extends Record<string, an
  * A config for building the Deferred Command reducer
  * List scoped
  */
-class DeferredCommandListConfig<TRoot, TState extends TElement[], TElement, TPayload, TData> extends DeferredCommandOptionConfig<TPayload, TData> {
+class DeferredCommandListConfig<TRoot, TState extends TElement[], TElement extends SimpleObject, TPayload, TData> extends DeferredCommandOptionConfig<TPayload, TData> {
 
   constructor(
     private context: StoreServiceContext<TRoot>,

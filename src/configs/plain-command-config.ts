@@ -2,7 +2,7 @@ import {listReducerScope, objectReducerScope, ReducerScope} from "../models/redu
 import {ListReducer, ListSelector, ObjectReducer} from "../models/store-types";
 import {PlainCommand} from "../commands/plain-command";
 import {StoreServiceContext} from "./command-config";
-import {ArrayType, Conditional, KeysOfType} from "@consensus-labs/ts-tools";
+import {ArrayType, Conditional, KeysOfType, SimpleObject} from "@consensus-labs/ts-tools";
 
 /**
  * A config for building the Plain Command reducer
@@ -35,7 +35,7 @@ export class PlainCommandObjectConfig<TRoot, TState extends Record<string, any>,
    * Target a list property on the object
    * @param key - The property name
    */
-  targetList<TKey extends KeysOfType<TState, any[]>>(key: TKey): PlainCommandListConfig<TRoot, TState[TKey], ArrayType<TState[TKey]>, TData> {
+  targetList<TKey extends KeysOfType<TState, SimpleObject[]>>(key: TKey): PlainCommandListConfig<TRoot, TState[TKey], ArrayType<TState[TKey]>&SimpleObject, TData> {
     const path = [...this.path, key.toString()];
     return new PlainCommandListConfig(
       this.context,
@@ -60,7 +60,7 @@ export class PlainCommandObjectConfig<TRoot, TState extends Record<string, any>,
  * A config for building the Plain Command reducer
  * List scoped
  */
-class PlainCommandListConfig<TRoot, TState extends TElement[], TElement, TData> {
+class PlainCommandListConfig<TRoot, TState extends TElement[], TElement extends SimpleObject, TData> {
 
   constructor(
     private context: StoreServiceContext<TRoot>,
