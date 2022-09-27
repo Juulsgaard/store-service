@@ -41,7 +41,10 @@ export class IndexedDbAdapter implements CacheAdapter {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const db = request.result;
-        db.onversionchange = () => db.close();
+        db.onversionchange = () => {
+          console.warn('The active database was deleted');
+          db.close();
+        }
         resolve(db);
       }
       request.onupgradeneeded = () => this.buildDatabase(request.result);
