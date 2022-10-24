@@ -1,5 +1,5 @@
 import {ListReducer} from "../models/store-types";
-import {WithId} from "@consensus-labs/ts-tools";
+import {ArrayType, WithId} from "@consensus-labs/ts-tools";
 
 
 export class BaseReducers {
@@ -7,7 +7,7 @@ export class BaseReducers {
   /**
    * Add an element to the end of a list
    */
-  static addition<TState extends TElement[], TElement, TData extends TElement>(): ListReducer<TState, TElement, TData> {
+  static addition<TState extends any[], TData extends ArrayType<TState>>(): ListReducer<TState, TData> {
     return (data, state) => [...state, data] as TState;
   }
 
@@ -15,7 +15,7 @@ export class BaseReducers {
    * Update an element in a list
    * Element is targeted based on ID
    */
-  static updateById<TState extends TElement[], TElement extends WithId>(): ListReducer<TState, TElement, Partial<TElement>&WithId> {
+  static updateById<TState extends WithId[]>(): ListReducer<TState, Partial<ArrayType<TState>>&WithId> {
     return (data, state) => {
       const index = state.findIndex(x => x.id === data.id);
 
@@ -33,7 +33,9 @@ export class BaseReducers {
    * Update an element in a list
    * Element is targeted based on given selector
    */
-  static updateElement<TState extends TElement[], TElement, TUpdate extends Partial<TElement>>(selector: (element: TElement|TUpdate) => string): ListReducer<TState, TElement, TUpdate> {
+  static updateElement<TState extends any[], TUpdate extends Partial<ArrayType<TState>>>(
+    selector: (element: ArrayType<TState>|TUpdate) => string
+  ): ListReducer<TState, TUpdate> {
     return (data, state) => {
       const index = state.findIndex(x => selector(x) === selector(data));
 
@@ -51,7 +53,7 @@ export class BaseReducers {
    * Remove an element from a list
    * Element is targeted based on ID
    */
-  static deleteById<TState extends TElement[], TElement extends WithId, TData extends string>(): ListReducer<TState, TElement, TData> {
+  static deleteById<TState extends WithId[], TData extends string>(): ListReducer<TState, TData> {
     return (data, state) => {
       const index = state.findIndex(x => x.id === data);
       if (index < 0) return state;
@@ -66,7 +68,9 @@ export class BaseReducers {
    * Remove an element from a list
    * Element is targeted based on given selector
    */
-  static deleteElement<TState extends TElement[], TElement, TData extends string>(selector: (element: TElement) => string): ListReducer<TState, TElement, TData> {
+  static deleteElement<TState extends any[], TData extends string>(
+    selector: (element: ArrayType<TState>) => string
+  ): ListReducer<TState, TData> {
     return (data, state) => {
       const index = state.findIndex(x => selector(x) === data);
       if (index < 0) return state;
@@ -82,7 +86,7 @@ export class BaseReducers {
    * Element is targeted based on ID
    * If the element doesn't exist then it's added to the end of the list
    */
-  static setById<TState extends TElement[], TElement extends WithId>(): ListReducer<TState, TElement, TElement> {
+  static setById<TState extends WithId[]>(): ListReducer<TState, ArrayType<TState>> {
     return (data, state) => {
       const index = state.findIndex(x => x.id === data.id);
 
@@ -101,7 +105,7 @@ export class BaseReducers {
    * Element is targeted based on given selector
    * If the element doesn't exist then it's added to the end of the list
    */
-  static setElement<TState extends TElement[], TElement>(selector: (element: TElement) => string): ListReducer<TState, TElement, TElement> {
+  static setElement<TState extends any[]>(selector: (element: ArrayType<TState>) => string): ListReducer<TState, ArrayType<TState>> {
     return (data, state) => {
       const index = state.findIndex(x => selector(x) === selector(data));
 

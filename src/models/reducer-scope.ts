@@ -1,4 +1,4 @@
-import {isFunction} from "@consensus-labs/ts-tools";
+import {ArrayType, isFunction} from "@consensus-labs/ts-tools";
 
 export type ReducerScope<TRoot, TState, TData> = (root: TRoot, data: TData, func: (state: TState) => TState) => TRoot;
 export type ActionReducerData<TPayload, TData> = { payload: TPayload, data: TData };
@@ -47,12 +47,12 @@ export function objectReducerScope<TRoot, TState extends Record<string, any>, TT
   }
 }
 
-export function listReducerScope<TRoot, TState extends TElement[], TElement, TData>(
+export function listReducerScope<TRoot, TState extends any[], TData>(
   prevReducer: ReducerScope<TRoot, TState, TData>,
-  selector: (data: TData) => (element: TElement) => boolean,
+  selector: (data: TData) => (element: ArrayType<TState>) => boolean,
   path: string[],
-  coalesce?: ReducerCoalesce<TData, TElement, TState>
-): ReducerScope<TRoot, TElement, TData> {
+  coalesce?: ReducerCoalesce<TData, ArrayType<TState>, TState>
+): ReducerScope<TRoot, ArrayType<TState>, TData> {
   return (root, data, func) => {
 
     const filter = selector(data);
