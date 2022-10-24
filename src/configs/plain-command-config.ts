@@ -43,7 +43,7 @@ export class PlainCommandObjectConfig<TRoot, TState extends Record<string, any>,
   targetList<TKey extends KeysOfTypeOrNull<TState, SimpleObject[]>>(
     key: TKey,
     create = false
-  ): PlainCommandListConfig<TRoot, ValueOfKey<TState, TKey>, ArrayType<ValueOfKey<TState, TKey>>&SimpleObject, TData> {
+  ): PlainCommandListConfig<TRoot, ValueOfKey<TState, TKey>, TData> {
     const path = [...this.path, key.toString()];
     return new PlainCommandListConfig(
       this.context,
@@ -68,7 +68,7 @@ export class PlainCommandObjectConfig<TRoot, TState extends Record<string, any>,
  * A config for building the Plain Command reducer
  * List scoped
  */
-class PlainCommandListConfig<TRoot, TState extends TElement[], TElement extends SimpleObject, TData> {
+class PlainCommandListConfig<TRoot, TState extends SimpleObject[], TData> {
 
   constructor(
     private context: StoreServiceContext<TRoot>,
@@ -84,13 +84,13 @@ class PlainCommandListConfig<TRoot, TState extends TElement[], TElement extends 
    * @param coalesce - A default value to append if item isn't found
    */
   targetItem(
-    selector: Conditional<TElement, Record<string, any>, ListSelector<TElement, TData, TData>>,
-    coalesce?: ReducerCoalesce<TData, TElement, TState>
-  ): PlainCommandObjectConfig<TRoot, TElement, TData> {
+    selector: Conditional<ArrayType<TState>, Record<string, any>, ListSelector<TState, TData, TData>>,
+    coalesce?: ReducerCoalesce<TData, ArrayType<TState>, TState>
+  ): PlainCommandObjectConfig<TRoot, ArrayType<TState>, TData> {
     const path = [...this.path, '[]'];
     return new PlainCommandObjectConfig(
       this.context,
-      listReducerScope<TRoot, TState, TElement, TData>(this.scope, (data) => selector(data, data), path, coalesce),
+      listReducerScope<TRoot, TState, TData>(this.scope, (data) => selector(data, data), path, coalesce),
       path
     );
   }
@@ -99,7 +99,7 @@ class PlainCommandListConfig<TRoot, TState extends TElement[], TElement extends 
    * Define the reducer for the active scope
    * @param reducer
    */
-  withReducer(reducer: ListReducer<TState, TElement, TData>): PlainCommand<TRoot, TData> {
+  withReducer(reducer: ListReducer<TState, TData>): PlainCommand<TRoot, TData> {
     return new PlainCommand(
       this.context,
       (root, data) => this.scope(root, data, state => reducer(data, state))
