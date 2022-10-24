@@ -1,8 +1,8 @@
-import {listReducerScope, objectReducerScope, ReducerScope} from "../models/reducer-scope";
+import {ActionReducerCoalesce, listReducerScope, objectReducerScope, ReducerCoalesce, ReducerScope} from "../models/reducer-scope";
 import {ListReducer, ListSelector, ObjectReducer} from "../models/store-types";
 import {PlainCommand} from "../commands/plain-command";
 import {StoreServiceContext} from "./command-config";
-import {ArrayType, Conditional, KeysOfType, SimpleObject} from "@consensus-labs/ts-tools";
+import {ArrayType, Conditional, KeysOfType, KeysOfTypeOrNull, SimpleObject, ValueOfKey} from "@consensus-labs/ts-tools";
 
 /**
  * A config for building the Plain Command reducer
@@ -21,12 +21,16 @@ export class PlainCommandObjectConfig<TRoot, TState extends Record<string, any>,
   /**
    * Target a property on the object
    * @param key - The property name
+   * @param coalesce - A default value to use if property isn't found
    */
-  targetProp<TKey extends KeysOfType<TState, Record<string, any>>>(key: TKey): PlainCommandObjectConfig<TRoot, TState[TKey], TData> {
+  targetProp<TKey extends KeysOfTypeOrNull<TState, Record<string, any>>>(
+    key: TKey,
+    coalesce?: ReducerCoalesce<TData, ValueOfKey<TState, TKey>, TState>
+  ): PlainCommandObjectConfig<TRoot, ValueOfKey<TState, TKey>, TData> {
     const path = [...this.path, key.toString()];
     return new PlainCommandObjectConfig(
       this.context,
-      objectReducerScope(this.scope, key, path),
+      objectReducerScope(this.scope, key, path, coalesce),
       path
     );
   };
@@ -34,12 +38,16 @@ export class PlainCommandObjectConfig<TRoot, TState extends Record<string, any>,
   /**
    * Target a list property on the object
    * @param key - The property name
+   * @param create - Add list if it doesn't exist
    */
-  targetList<TKey extends KeysOfType<TState, SimpleObject[]>>(key: TKey): PlainCommandListConfig<TRoot, TState[TKey], ArrayType<TState[TKey]>&SimpleObject, TData> {
+  targetList<TKey extends KeysOfTypeOrNull<TState, SimpleObject[]>>(
+    key: TKey,
+    create = false
+  ): PlainCommandListConfig<TRoot, ValueOfKey<TState, TKey>, ArrayType<ValueOfKey<TState, TKey>>&SimpleObject, TData> {
     const path = [...this.path, key.toString()];
     return new PlainCommandListConfig(
       this.context,
-      objectReducerScope(this.scope, key, path),
+      objectReducerScope(this.scope, key, path, create ? [] as TState[TKey] : undefined),
       path
     );
   };
@@ -73,14 +81,16 @@ class PlainCommandListConfig<TRoot, TState extends TElement[], TElement extends 
   /**
    * Target a list item in the list
    * @param selector - The selector for the list item
+   * @param coalesce - A default value to append if item isn't found
    */
   targetItem(
-    selector: Conditional<TElement, Record<string, any>, ListSelector<TElement, TData, TData>>
+    selector: Conditional<TElement, Record<string, any>, ListSelector<TElement, TData, TData>>,
+    coalesce?: ReducerCoalesce<TData, TElement, TState>
   ): PlainCommandObjectConfig<TRoot, TElement, TData> {
     const path = [...this.path, '[]'];
     return new PlainCommandObjectConfig(
       this.context,
-      listReducerScope<TRoot, TState, TElement, TData>(this.scope, (data) => selector(data, data), path),
+      listReducerScope<TRoot, TState, TElement, TData>(this.scope, (data) => selector(data, data), path, coalesce),
       path
     );
   }

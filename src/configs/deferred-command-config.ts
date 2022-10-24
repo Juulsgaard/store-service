@@ -1,8 +1,8 @@
-import {applyScopedObjectReducer, listReducerScope, objectReducerScope, ReducerScope} from "../models/reducer-scope";
+import {applyScopedObjectReducer, listReducerScope, objectReducerScope, ReducerCoalesce, ReducerScope} from "../models/reducer-scope";
 import {ListReducer, ListSelector, ObjectReducer} from "../models/store-types";
 import {StoreServiceContext} from "./command-config";
 import {DeferredCommand, DeferredCommandOptions} from "../commands/deferred-command";
-import {ArrayType, Conditional, KeysOfType, SimpleObject} from "@consensus-labs/ts-tools";
+import {ArrayType, Conditional, KeysOfType, SimpleObject, ValueOfKey} from "@consensus-labs/ts-tools";
 
 /**
  * A base config that allows modification of an option object
@@ -57,13 +57,17 @@ export class DeferredCommandObjectConfig<TRoot, TState extends Record<string, an
   /**
    * Target a property on the object
    * @param key - The property name
+   * @param coalesce - A default value to use if property isn't found
    */
-  targetProp<TKey extends KeysOfType<TState, Record<string, any>>>(key: TKey): DeferredCommandObjectConfig<TRoot, TState[TKey], TPayload, TData> {
+  targetProp<TKey extends KeysOfType<TState, Record<string, any>>>(
+    key: TKey,
+    coalesce?: ReducerCoalesce<TPayload, ValueOfKey<TState, TKey>, TState>
+  ): DeferredCommandObjectConfig<TRoot, ValueOfKey<TState, TKey>, TPayload, TData> {
     const path = [...this.path, key.toString()];
     return new DeferredCommandObjectConfig(
       this.context,
       this.options,
-      objectReducerScope(this.scope, key, path),
+      objectReducerScope(this.scope, key, path, coalesce),
       path
     );
   };
@@ -71,13 +75,17 @@ export class DeferredCommandObjectConfig<TRoot, TState extends Record<string, an
   /**
    * Target a list property on the object
    * @param key - The property name
+   * @param create - Add list if it doesn't exist
    */
-  targetList<TKey extends KeysOfType<TState, SimpleObject[]>>(key: TKey): DeferredCommandListConfig<TRoot, TState[TKey], ArrayType<TState[TKey]>&SimpleObject, TPayload, TData> {
+  targetList<TKey extends KeysOfType<TState, SimpleObject[]>>(
+    key: TKey,
+    create = false
+  ): DeferredCommandListConfig<TRoot, ValueOfKey<TState, TKey>, ArrayType<ValueOfKey<TState, TKey>>&SimpleObject, TPayload, TData> {
     const path = [...this.path, key.toString()];
     return new DeferredCommandListConfig(
       this.context,
       this.options,
-      objectReducerScope(this.scope, key, path),
+      objectReducerScope(this.scope, key, path, create ? [] as TState[TKey] : undefined),
       path
     );
   };
@@ -125,15 +133,17 @@ class DeferredCommandListConfig<TRoot, TState extends TElement[], TElement exten
   /**
    * Target a list item in the list
    * @param selector - The selector for the list item
+   * @param coalesce - A default value to append if item isn't found
    */
   targetItem(
-    selector: Conditional<TElement, Record<string, any>, ListSelector<TElement, TPayload, TPayload>>
+    selector: Conditional<TElement, Record<string, any>, ListSelector<TElement, TPayload, TPayload>>,
+    coalesce?: ReducerCoalesce<TPayload, TElement, TState>
   ): DeferredCommandObjectConfig<TRoot, TElement, TPayload, TData> {
     const path = [...this.path, '[]'];
     return new DeferredCommandObjectConfig(
       this.context,
       this.options,
-      listReducerScope(this.scope, (payload) => selector(payload, payload), path),
+      listReducerScope(this.scope, (payload) => selector(payload, payload), path, coalesce),
       path
     );
   }
