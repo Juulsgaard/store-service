@@ -1,4 +1,4 @@
-import {BehaviorSubject, distinctUntilChanged, isObservable, Observable, shareReplay, Subject, Subscription, tap} from "rxjs";
+import {BehaviorSubject, distinctUntilChanged, filter, isObservable, Observable, shareReplay, Subject, Subscription, tap} from "rxjs";
 import {StoreClientCommandConfig, StoreCommandConfig, StoreServiceContext} from "./configs/command-config";
 import {Reducer} from "./models/store-types";
 import {IStoreConfigService} from "./models/store-config-service";
@@ -493,6 +493,27 @@ export abstract class StoreService<TState extends Record<string, any>> {
    */
   protected select<TSelect>(selector: (state: TState) => TSelect) {
     return this.selector(state$ => state$.pipe(map(selector)))
+  }
+
+  /**
+   * Create a basic with a nullability filter
+   * @protected
+   * @param selector - A method to map the state to the desired shape
+   * @param modify - Modify the non-nullable data
+   */
+  protected selectNotNull<TSelect, TMod>(selector: (state: TState) => TSelect, modify: (data: NonNullable<TSelect>) => TMod): Observable<TMod>;
+  /**
+   * Create a basic with a nullability filter
+   * @protected
+   * @param selector - A method to map the state to the desired shape
+   */
+  protected selectNotNull<TSelect>(selector: (state: TState) => TSelect): Observable<TSelect>;
+  protected selectNotNull<TSelect, TMod>(selector: (state: TState) => TSelect, modify?: (data: NonNullable<TSelect>) => TMod): Observable<TSelect|TMod> {
+    return this.selector<TSelect|TMod>(state$ => {
+      const base$ = state$.pipe(map(selector), filter((x) : x is NonNullable<TSelect> => x != null));
+      if (!modify) return base$;
+      return base$.pipe(map(modify));
+    });
   }
 }
 
