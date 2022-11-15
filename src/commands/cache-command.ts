@@ -1,7 +1,7 @@
 import {combineLatest, distinctUntilChanged, EMPTY, Observable, of, Subject, switchMap, tap} from "rxjs";
 import {logActionInformation, logFailedAction, logSuccessfulAction} from "../models/logging";
 import {CommandAction} from "../models/store-types";
-import {CacheCommandError, InitialLoadError} from "../models/errors";
+import {CacheCommandError, ActionCancelledError} from "../models/errors";
 import {map} from "rxjs/operators";
 import {StoreServiceContext} from "../configs/command-config";
 import {LoadingState} from "../loading-state";
@@ -182,13 +182,13 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
     //<editor-fold desc="Precondition">
     // Throw error if initial load has already been loaded
     if (this.alreadyLoaded(cachePayload)) {
-      return LoadingState.FromError(() => new InitialLoadError('This cache action has already been loaded', cachePayload));
+      return LoadingState.FromError(() => new ActionCancelledError('This cache action has already been loaded', cachePayload));
     }
 
     // Throw error if initial load has already been loaded for fallback
     if (this.fallbackCommand && 'alreadyLoaded' in this.fallbackCommand) {
       if (this.fallbackCommand.alreadyLoaded(cmdPayload)) {
-        return LoadingState.FromError(() => new InitialLoadError('This cache fallback action has already been loaded', cachePayload))
+        return LoadingState.FromError(() => new ActionCancelledError('This cache fallback action has already been loaded', cachePayload))
       }
     }
     //</editor-fold>

@@ -15,7 +15,7 @@ export class CacheCommandError<TPayload> extends Error {
 
 }
 
-export class InitialLoadError<TPayload> extends Error {
+export class ActionCancelledError<TPayload> extends Error {
   constructor(message: string, public payload: TPayload) {
     super(message);
   }

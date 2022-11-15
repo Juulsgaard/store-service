@@ -61,7 +61,7 @@ export class StoreCommandConfig<TState extends SimpleObject> {
   withAction<TPayload, TData>(action: CommandAction<TPayload, TData>): ActionCommandObjectConfig<TState, TState, TPayload, TData> {
     return new ActionCommandObjectConfig<TState, TState, TPayload, TData>(
       this.context,
-      {action, showError: true, initialLoad: false, queue: false},
+      {action, showError: true, initialLoad: false, queue: false, cancelConcurrent: false},
       rootReducerScope,
       []
     );
@@ -112,7 +112,7 @@ export class StoreClientCommandConfig<TState extends SimpleObject, TClient> {
   withAction<TPayload, TData>(action: (client: TClient) => CommandAction<TPayload, TData>): ActionCommandObjectConfig<TState, TState, TPayload, TData> {
     return new ActionCommandObjectConfig<TState, TState, TPayload, TData>(
       this.context,
-      {action: action(this.client).bind(this.client), showError: true, initialLoad: false, queue: false},
+      {action: action(this.client).bind(this.client), showError: true, initialLoad: false, queue: false, cancelConcurrent: false},
       rootReducerScope,
       []
     );

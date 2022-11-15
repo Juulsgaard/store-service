@@ -1,7 +1,7 @@
 import {tap} from "rxjs";
 import {logFailedAction, logSuccessfulAction} from "../models/logging";
 import {CommandAction} from "../models/store-types";
-import {InitialLoadError} from "../models/errors";
+import {ActionCancelledError} from "../models/errors";
 import {map} from "rxjs/operators";
 import {StoreServiceContext} from "../configs/command-config";
 import {LoadingState} from "../loading-state";
@@ -22,6 +22,7 @@ export interface ActionCommandOptions<TPayload, TData> {
   successMessage?: string | ((data: TData, payload: TPayload) => string);
   modify?: (data: TData) => TData | void;
   queue: boolean;
+  cancelConcurrent: boolean;
   /** An effect action that is triggered after a successful command action */
   afterEffect?: (data: TData, payload: TPayload) => void;
   /** A list of retired. Every number represents the amount of time to wait before the retry attempt */
@@ -59,6 +60,16 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
     return this.context.getLoadState(this) !== undefined;
   }
 
+  cancelConcurrent(payload: TPayload): boolean {
+    if (!this.options.cancelConcurrent) return false;
+
+    if (this.options.requestId) {
+      return (this.context.getLoadState(this, this.options.requestId(payload)) ?? 0) > 0;
+    }
+
+    return (this.context.getLoadState(this) ?? 0) > 0;
+  }
+
   /**
    * Dispatch the command and return a LoadingState to monitor command progress
    * @param payload - The command payload
@@ -84,8 +95,13 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
   private execute(payload: TPayload, ignoreInitial: boolean): LoadingState<TData> {
 
     // Throw error if initial load has already been loaded
-    if (!ignoreInitial && this.alreadyLoaded(payload)) {
-      return LoadingState.FromError(() => new InitialLoadError('This action has already been loaded', payload))
+    if (!ignoreInitial) {
+      if (this.alreadyLoaded(payload)) {
+        return LoadingState.FromError(() => new ActionCancelledError('This action has already been loaded', payload))
+      }
+      if (this.cancelConcurrent(payload)) {
+        return LoadingState.FromError(() => new ActionCancelledError('Actions was cancelled because another is already running', payload))
+      }
     }
 
     const requestId = this.options.requestId?.(payload);

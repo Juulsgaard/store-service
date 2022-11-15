@@ -79,6 +79,14 @@ class ActionCommandOptionConfig<TPayload, TData> {
   }
 
   /**
+   * Cancels requests that happen while one of similar type / id is ongoing
+   */
+  cancelConcurrent(): this {
+    this.options.cancelConcurrent = true;
+    return this;
+  }
+
+  /**
    * Add an action that will be run after a successful command action
    * @param effect
    */
