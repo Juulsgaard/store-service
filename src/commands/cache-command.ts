@@ -19,6 +19,7 @@ export interface CacheCommandOptions<TPayload, TData> {
   errorMessage?: string;
   successMessage?: string | ((data: TData, payload: TPayload) => string);
   initialLoad: boolean;
+  cancelConcurrent: boolean;
   requestId?: (payload: TPayload) => string;
 
   /** Use the cache even if online */
@@ -164,6 +165,16 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
     return this.context.getLoadState(this) !== undefined;
   }
 
+  cancelConcurrent(payload: TPayload): boolean {
+    if (!this.options.cancelConcurrent) return false;
+
+    if (this.options.requestId) {
+      return (this.context.getLoadState(this, this.options.requestId(payload)) ?? 0) > 0;
+    }
+
+    return (this.context.getLoadState(this) ?? 0) > 0;
+  }
+
   /**
    * Dispatch the command/fallback and return a LoadingState to monitor progress of both
    * @param payload - The command/cache payload
@@ -180,9 +191,15 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
     const cmdPayload = commandPayload ?? cachePayload as TXPayload;
 
     //<editor-fold desc="Precondition">
+
     // Throw error if initial load has already been loaded
     if (this.alreadyLoaded(cachePayload)) {
       return LoadingState.FromError(() => new ActionCancelledError('This cache action has already been loaded', cachePayload));
+    }
+
+    // Throw error if the action is concurrent and concurrent are set to be cancelled
+    if (this.cancelConcurrent(cachePayload)) {
+      return LoadingState.FromError(() => new ActionCancelledError('Actions was cancelled because another is already running', cachePayload))
     }
 
     // Throw error if initial load has already been loaded for fallback

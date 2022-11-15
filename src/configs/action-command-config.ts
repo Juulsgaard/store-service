@@ -21,7 +21,16 @@ class ActionCommandOptionConfig<TPayload, TData> {
    */
   isInitial(requestId?: (payload: TPayload) => string): this {
     this.options.initialLoad = true;
-    this.options.requestId = requestId;
+    this.options.requestId = requestId ?? this.options.requestId;
+    return this;
+  }
+
+  /**
+   * Cancels requests that happen while one of similar type / id is ongoing
+   */
+  cancelConcurrent(requestId?: (payload: TPayload) => string): this {
+    this.options.cancelConcurrent = true;
+    this.options.requestId = requestId ?? this.options.requestId;
     return this;
   }
 
@@ -29,7 +38,7 @@ class ActionCommandOptionConfig<TPayload, TData> {
    * Assign a request id to individual actions
    * @param requestId - Request Id generator
    */
-  withRequestId(requestId?: (payload: TPayload) => string): this {
+  withRequestId(requestId: (payload: TPayload) => string): this {
     this.options.requestId = requestId;
     return this;
   }
@@ -75,14 +84,6 @@ class ActionCommandOptionConfig<TPayload, TData> {
    */
   withQueue(): this {
     this.options.queue = true;
-    return this;
-  }
-
-  /**
-   * Cancels requests that happen while one of similar type / id is ongoing
-   */
-  cancelConcurrent(): this {
-    this.options.cancelConcurrent = true;
     return this;
   }
 

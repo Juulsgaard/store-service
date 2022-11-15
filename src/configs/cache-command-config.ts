@@ -30,7 +30,8 @@ export class CacheCommandConfig<TState extends Record<string, any>, TCache> {
         action: ({options}) => this.cache.loadAll(options),
         failCondition: x => x.length === 0,
         cacheWhenOnline: true,
-        fallbackWhenOffline: true
+        fallbackWhenOffline: true,
+        cancelConcurrent: false
       },
       rootReducerScope,
       []
@@ -66,7 +67,8 @@ export class CacheCommandConfig<TState extends Record<string, any>, TCache> {
         );
       },
       cacheWhenOnline: true,
-      fallbackWhenOffline: true
+      fallbackWhenOffline: true,
+      cancelConcurrent: false
     }
 
     return new CacheCommandObjectConfig<TState, TState, any, TCache>(
@@ -110,7 +112,16 @@ class CacheCommandOptionConfig<TPayload, TData> {
    */
   isInitial(requestId?: (payload: TPayload) => string): this {
     this.options.initialLoad = true;
-    this.options.requestId = requestId;
+    this.options.requestId = requestId ?? this.options.requestId;
+    return this;
+  }
+
+  /**
+   * Cancels requests that happen while one of similar type / id is ongoing
+   */
+  cancelConcurrent(requestId?: (payload: TPayload) => string): this {
+    this.options.cancelConcurrent = true;
+    this.options.requestId = requestId ?? this.options.requestId;
     return this;
   }
 
@@ -118,7 +129,7 @@ class CacheCommandOptionConfig<TPayload, TData> {
    * Assign a request id to individual actions
    * @param requestId - Request Id generator
    */
-  withRequestId(requestId?: (payload: TPayload) => string): this {
+  withRequestId(requestId: (payload: TPayload) => string): this {
     this.options.requestId = requestId;
     return this;
   }
