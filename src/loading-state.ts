@@ -5,6 +5,7 @@ import {
 import {first, map} from "rxjs/operators";
 import {CancelledError} from "./models/errors";
 import {permanentCache} from "@consensus-labs/rxjs-tools";
+import {isFunction, isObject} from "@consensus-labs/ts-tools";
 
 /**
  * The base loading state
@@ -213,7 +214,9 @@ export class LoadingState<TData> implements ILoadingState {
    * @private
    */
   private static parseError(error: Error | any): Error {
-    if ('name' in error && 'message' in error) return error;
+    if (error instanceof Error) return error;
+    if (!isObject(error)) return Error(error.toString());
+    if ('name' in error && 'message' in error) return error as Error;
     return Error(error.toString());
   }
 
