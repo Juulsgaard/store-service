@@ -182,12 +182,12 @@ export class ActionCommandObjectConfig<TRoot, TState extends Record<string, any>
    * Define the reducer for the active scope
    * @param reducer
    */
-  withReducer(reducer: ObjectReducer<TState, TData>): ActionCommand<TRoot, TPayload, TData>
+  withReducer(reducer: (data: TData, state: TState, payload: TPayload) => Partial<TState>): ActionCommand<TRoot, TPayload, TData>
   /**
    * Define the reducer for the active scope
    * @param reducer
    */
-  withReducer(reducer: (data: TData, state: TState, payload: TPayload) => Partial<TState>): ActionCommand<TRoot, TPayload, TData>
+  withReducer(reducer: ObjectReducer<TState, TData>): ActionCommand<TRoot, TPayload, TData>
   withReducer(reducer: (data: TData, state: TState, payload: TPayload) => Partial<TState>): ActionCommand<TRoot, TPayload, TData> {
     return new ActionCommand(
       this.context,
@@ -263,12 +263,12 @@ class ActionCommandListConfig<TRoot, TState extends SimpleObject[], TPayload, TD
    * Define the reducer for the active scope
    * @param reducer
    */
-  withReducer(reducer: ListReducer<TState, TData>): ActionCommand<TRoot, TPayload, TData>
+  withReducer(reducer: (data: TData, state: TState, payload: TPayload) => TState): ActionCommand<TRoot, TPayload, TData>
   /**
    * Define the reducer for the active scope
    * @param reducer
    */
-  withReducer(reducer: (data: TData, state: TState, payload: TPayload) => TState): ActionCommand<TRoot, TPayload, TData>
+  withReducer(reducer: ListReducer<TState, TData>): ActionCommand<TRoot, TPayload, TData>
   withReducer(reducer: (data: TData, state: TState, payload: TPayload) => TState): ActionCommand<TRoot, TPayload, TData> {
     return new ActionCommand(
       this.context,

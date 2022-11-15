@@ -230,12 +230,12 @@ class CacheCommandObjectConfig<TRoot, TState extends Record<string, any>, TPaylo
    * Define the reducer for the active scope
    * @param reducer
    */
-  withReducer(reducer: ObjectReducer<TState, TData>): CacheCommandEffectConfig<TRoot, TPayload, TData>
+  withReducer(reducer: (data: TData, state: TState, payload: TPayload) => Partial<TState>): CacheCommandEffectConfig<TRoot, TPayload, TData>
   /**
    * Define the reducer for the active scope
    * @param reducer
    */
-  withReducer(reducer: (data: TData, state: TState, payload: TPayload) => Partial<TState>): CacheCommandEffectConfig<TRoot, TPayload, TData>
+  withReducer(reducer: ObjectReducer<TState, TData>): CacheCommandEffectConfig<TRoot, TPayload, TData>
   withReducer(reducer: (data: TData, state: TState, payload: TPayload) => Partial<TState>): CacheCommandEffectConfig<TRoot, TPayload, TData> {
     return new CacheCommandEffectConfig(
       this.context,
@@ -300,12 +300,12 @@ class CacheCommandListConfig<TRoot, TState extends SimpleObject[], TPayload, TDa
    * Define the reducer for the active scope
    * @param reducer
    */
-  withReducer(reducer: ListReducer<TState, TData>): CacheCommandEffectConfig<TRoot, TPayload, TData>
+  withReducer(reducer: (data: TData, state: TState, payload: TPayload) => TState): CacheCommandEffectConfig<TRoot, TPayload, TData>
   /**
    * Define the reducer for the active scope
    * @param reducer
    */
-  withReducer(reducer: (data: TData, state: TState, payload: TPayload) => TState): CacheCommandEffectConfig<TRoot, TPayload, TData>
+  withReducer(reducer: ListReducer<TState, TData>): CacheCommandEffectConfig<TRoot, TPayload, TData>
   withReducer(reducer: (data: TData, state: TState, payload: TPayload) => TState): CacheCommandEffectConfig<TRoot, TPayload, TData> {
     return new CacheCommandEffectConfig(
       this.context,
