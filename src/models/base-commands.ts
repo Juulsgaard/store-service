@@ -4,6 +4,7 @@ import {distinctUntilChanged, Observable} from "rxjs";
 import {ActionCommand} from "../commands/action-command";
 import {DeferredCommand} from "../commands/deferred-command";
 import {PlainCommand} from "../commands/plain-command";
+import {IdMap, parseIdMap} from "../lib/id-map";
 
 /**
  * The base Command class
@@ -62,29 +63,32 @@ export abstract class StoreCommand<TState> {
 
 export abstract class PayloadCommand<TState, TPayload> extends StoreCommand<TState> {
 
-  protected constructor(context: StoreServiceContext<TState>, private requestId?: (payload: TPayload) => string) {
+  protected getRequestId?: (payload: TPayload) => string;
+
+  protected constructor(context: StoreServiceContext<TState>, requestId?: IdMap<TPayload>) {
     super(context);
+    this.getRequestId = requestId && parseIdMap(requestId);
   }
 
   loadingById$(payload: TPayload) {
-    if (!this.requestId) return this.loading$;
-    return this.context.getLoadState$(this, this.requestId(payload)).pipe(
+    if (!this.getRequestId) return this.loading$;
+    return this.context.getLoadState$(this, this.getRequestId(payload)).pipe(
       map(x => !!x && x > 0),
       distinctUntilChanged()
     )
   }
 
   loadedById$(payload: TPayload) {
-    if (!this.requestId) return this.loaded$;
-    return this.context.getLoadState$(this, this.requestId(payload)).pipe(
+    if (!this.getRequestId) return this.loaded$;
+    return this.context.getLoadState$(this, this.getRequestId(payload)).pipe(
       map(x => x !== undefined),
       distinctUntilChanged()
     )
   }
 
   failedById$(payload: TPayload) {
-    if (!this.requestId) return this.failed$;
-    return this.context.getFailureState$(this, this.requestId(payload)).pipe(
+    if (!this.getRequestId) return this.failed$;
+    return this.context.getFailureState$(this, this.getRequestId(payload)).pipe(
       distinctUntilChanged()
     )
   }
@@ -94,11 +98,11 @@ export abstract class PayloadCommand<TState, TPayload> extends StoreCommand<TSta
    * @internal
    */
   resetFailureStateById(payload: TPayload) {
-    if (!this.requestId) {
+    if (!this.getRequestId) {
       this.resetFailState();
       return;
     }
-    this.context.resetFailState(this, this.requestId(payload));
+    this.context.resetFailState(this, this.getRequestId(payload));
   }
 }
 

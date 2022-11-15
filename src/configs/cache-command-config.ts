@@ -110,7 +110,7 @@ class CacheCommandOptionConfig<TPayload, TData> {
   /**
    * Mark the cache action as being an initial load
    */
-  isInitial(requestId?: (payload: TPayload) => string): this {
+  isInitial(requestId?: IdMap<TPayload>): this {
     this.options.initialLoad = true;
     this.options.requestId = requestId ?? this.options.requestId;
     return this;
@@ -119,7 +119,7 @@ class CacheCommandOptionConfig<TPayload, TData> {
   /**
    * Cancels requests that happen while one of similar type / id is ongoing
    */
-  cancelConcurrent(requestId?: (payload: TPayload) => string): this {
+  cancelConcurrent(requestId?: IdMap<TPayload>): this {
     this.options.cancelConcurrent = true;
     this.options.requestId = requestId ?? this.options.requestId;
     return this;
@@ -129,7 +129,7 @@ class CacheCommandOptionConfig<TPayload, TData> {
    * Assign a request id to individual actions
    * @param requestId - Request Id generator
    */
-  withRequestId(requestId: (payload: TPayload) => string): this {
+  withRequestId(requestId: IdMap<TPayload>): this {
     this.options.requestId = requestId;
     return this;
   }

@@ -8,6 +8,7 @@ import {LoadingState} from "../loading-state";
 import {QueueAction} from "../models/queue-action";
 import {PlainCommand} from "./plain-command";
 import {StoreCommand, StoreCommandUnion} from "../models/base-commands";
+import {IdMap, parseIdMap} from "../lib/id-map";
 
 
 /**
@@ -20,7 +21,7 @@ export interface CacheCommandOptions<TPayload, TData> {
   successMessage?: string | ((data: TData, payload: TPayload) => string);
   initialLoad: boolean;
   cancelConcurrent: boolean;
-  requestId?: (payload: TPayload) => string;
+  requestId?: IdMap<TPayload>;
 
   /** Use the cache even if online */
   cacheWhenOnline: boolean;
@@ -46,6 +47,8 @@ export interface CacheLoadOptions {
  */
 export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends StoreCommand<TState> {
 
+  protected getRequestId?: (payload: TPayload) => string;
+
   get initialLoad() {
     return this.options.initialLoad
   }
@@ -62,6 +65,7 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
     private concurrentFallback = false
   ) {
     super(context);
+    this.getRequestId = this.options.requestId && parseIdMap(this.options.requestId);
 
     this.cacheLoading$ = super.loading$;
     this.cacheLoaded$ = super.loaded$;
@@ -87,24 +91,24 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
 
   //<editor-fold desc="Cache Request Loading State">
   cacheLoadingById$(payload: TPayload) {
-    if (!this.options.requestId) return this.loading$;
-    return this.context.getLoadState$(this, this.options.requestId(payload)).pipe(
+    if (!this.getRequestId) return this.loading$;
+    return this.context.getLoadState$(this, this.getRequestId(payload)).pipe(
       map(x => !!x && x > 0),
       distinctUntilChanged()
     )
   }
 
   cacheLoadedById$(payload: TPayload) {
-    if (!this.options.requestId) return this.loaded$;
-    return this.context.getLoadState$(this, this.options.requestId(payload)).pipe(
+    if (!this.getRequestId) return this.loaded$;
+    return this.context.getLoadState$(this, this.getRequestId(payload)).pipe(
       map(x => x !== undefined),
       distinctUntilChanged()
     )
   }
 
   cacheFailedById$(payload: TPayload) {
-    if (!this.options.requestId) return this.failed$;
-    return this.context.getFailureState$(this, this.options.requestId(payload)).pipe(
+    if (!this.getRequestId) return this.failed$;
+    return this.context.getFailureState$(this, this.getRequestId(payload)).pipe(
       distinctUntilChanged()
     )
   }
@@ -116,7 +120,7 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
   loadingById$(payload: TPayload & TXPayload): Observable<boolean>;
   loadingById$(cachePayload: TPayload, commandPayload: TXPayload): Observable<boolean>;
   loadingById$(cachePayload: TPayload | (TPayload & TXPayload), commandPayload?: TXPayload) {
-    if (!this.options.requestId) return this.loading$;
+    if (!this.getRequestId) return this.loading$;
     if (!this.fallbackCommand || !('loadingById$' in this.fallbackCommand)) return this.cacheLoadingById$(cachePayload);
     const cmdPayload = commandPayload ?? cachePayload as TXPayload;
     return combineLatest([this.cacheLoadingById$(cachePayload), this.fallbackCommand.loadingById$(cmdPayload)]).pipe(
@@ -128,7 +132,7 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
   loadedById$(payload: TPayload & TXPayload): Observable<boolean>;
   loadedById$(cachePayload: TPayload, commandPayload: TXPayload): Observable<boolean>;
   loadedById$(cachePayload: TPayload | (TPayload & TXPayload), commandPayload?: TXPayload) {
-    if (!this.options.requestId) return this.loading$;
+    if (!this.getRequestId) return this.loading$;
     if (!this.fallbackCommand || !('loadedById$' in this.fallbackCommand)) return this.cacheLoadedById$(cachePayload);
     const cmdPayload = commandPayload ?? cachePayload as TXPayload;
     return combineLatest([this.cacheLoadedById$(cachePayload), this.fallbackCommand.loadedById$(cmdPayload)]).pipe(
@@ -140,7 +144,7 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
   failedById$(payload: TPayload & TXPayload): Observable<boolean>;
   failedById$(cachePayload: TPayload, commandPayload: TXPayload): Observable<boolean>;
   failedById$(cachePayload: TPayload | (TPayload & TXPayload), commandPayload?: TXPayload) {
-    if (!this.options.requestId) return this.failed$;
+    if (!this.getRequestId) return this.failed$;
     if (!this.fallbackCommand || !('failedById$' in this.fallbackCommand)) return this.cacheFailedById$(cachePayload);
     const cmdPayload = commandPayload ?? cachePayload as TXPayload;
     return combineLatest([this.cacheFailedById$(cachePayload), this.fallbackCommand.failedById$(cmdPayload)]).pipe(
@@ -158,8 +162,8 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
   alreadyLoaded(payload: TPayload): boolean {
     if (!this.options.initialLoad) return false;
 
-    if (this.options.requestId) {
-      return this.context.getLoadState(this, this.options.requestId(payload)) !== undefined
+    if (this.getRequestId) {
+      return this.context.getLoadState(this, this.getRequestId(payload)) !== undefined
     }
 
     return this.context.getLoadState(this) !== undefined;
@@ -168,8 +172,8 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
   cancelConcurrent(payload: TPayload): boolean {
     if (!this.options.cancelConcurrent) return false;
 
-    if (this.options.requestId) {
-      return (this.context.getLoadState(this, this.options.requestId(payload)) ?? 0) > 0;
+    if (this.getRequestId) {
+      return (this.context.getLoadState(this, this.getRequestId(payload)) ?? 0) > 0;
     }
 
     return (this.context.getLoadState(this) ?? 0) > 0;
@@ -210,7 +214,7 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
     }
     //</editor-fold>
 
-    const requestId = this.options.requestId?.(cachePayload);
+    const requestId = this.getRequestId?.(cachePayload);
 
     this.context.startLoad(this, requestId);
 

@@ -5,6 +5,7 @@ import {
 import {ListReducer, ListSelector, ObjectReducer} from "../models/store-types";
 import {StoreServiceContext} from "./command-config";
 import {ArrayType, Conditional, KeysOfTypeOrNull, SimpleObject, ValueOfKey} from "@consensus-labs/ts-tools";
+import {IdMap} from "../lib/id-map";
 
 
 /**
@@ -19,7 +20,7 @@ class ActionCommandOptionConfig<TPayload, TData> {
    * Marks the command as an initial load
    * This command can only be run once
    */
-  isInitial(requestId?: (payload: TPayload) => string): this {
+  isInitial(requestId?: IdMap<TPayload>): this {
     this.options.initialLoad = true;
     this.options.requestId = requestId ?? this.options.requestId;
     return this;
@@ -28,7 +29,7 @@ class ActionCommandOptionConfig<TPayload, TData> {
   /**
    * Cancels requests that happen while one of similar type / id is ongoing
    */
-  cancelConcurrent(requestId?: (payload: TPayload) => string): this {
+  cancelConcurrent(requestId?: IdMap<TPayload>): this {
     this.options.cancelConcurrent = true;
     this.options.requestId = requestId ?? this.options.requestId;
     return this;
@@ -38,7 +39,7 @@ class ActionCommandOptionConfig<TPayload, TData> {
    * Assign a request id to individual actions
    * @param requestId - Request Id generator
    */
-  withRequestId(requestId: (payload: TPayload) => string): this {
+  withRequestId(requestId: IdMap<TPayload>): this {
     this.options.requestId = requestId;
     return this;
   }

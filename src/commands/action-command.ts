@@ -8,6 +8,7 @@ import {LoadingState} from "../loading-state";
 import {QueueAction} from "../models/queue-action";
 import {retryAction} from "../lib/retry";
 import {PayloadCommand} from "../models/base-commands";
+import {IdMap} from "../lib/id-map";
 
 
 /**
@@ -16,7 +17,7 @@ import {PayloadCommand} from "../models/base-commands";
 export interface ActionCommandOptions<TPayload, TData> {
   readonly action: CommandAction<TPayload, TData>;
   initialLoad: boolean;
-  requestId?: (payload: TPayload) => string;
+  requestId?: IdMap<TPayload>;
   showError: boolean;
   errorMessage?: string;
   successMessage?: string | ((data: TData, payload: TPayload) => string);
@@ -53,8 +54,8 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
   alreadyLoaded(payload: TPayload): boolean {
     if (!this.options.initialLoad) return false;
 
-    if (this.options.requestId) {
-      return this.context.getLoadState(this, this.options.requestId(payload)) !== undefined
+    if (this.getRequestId) {
+      return this.context.getLoadState(this, this.getRequestId(payload)) !== undefined
     }
 
     return this.context.getLoadState(this) !== undefined;
@@ -63,8 +64,8 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
   cancelConcurrent(payload: TPayload): boolean {
     if (!this.options.cancelConcurrent) return false;
 
-    if (this.options.requestId) {
-      return (this.context.getLoadState(this, this.options.requestId(payload)) ?? 0) > 0;
+    if (this.getRequestId) {
+      return (this.context.getLoadState(this, this.getRequestId(payload)) ?? 0) > 0;
     }
 
     return (this.context.getLoadState(this) ?? 0) > 0;
@@ -104,7 +105,7 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
       }
     }
 
-    const requestId = this.options.requestId?.(payload);
+    const requestId = this.getRequestId?.(payload);
 
     this.context.startLoad(this, requestId);
 
