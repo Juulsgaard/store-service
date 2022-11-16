@@ -270,6 +270,7 @@ export class LoadingState<TData> implements ILoadingState {
 export class DelayedLoadingState<TData> extends LoadingState<TData> {
 
   triggerSubject: Subject<void>;
+  trigger$: Observable<TData>;
 
   constructor(action: () => TData | Promise<TData> | Observable<TData>, modify?: (data: TData) => TData | void) {
     const triggerSubject = new Subject<void>();
@@ -286,12 +287,12 @@ export class DelayedLoadingState<TData> extends LoadingState<TData> {
     ));
 
     this.triggerSubject = triggerSubject;
-    this.trigger$ = this.result$.pipe(tap({subscribe: () => this.triggerSubject.next()}));
+    this.trigger$ = this.result$.pipe(tap({subscribe: () => this.trigger()}), permanentCache());
   }
 
-  trigger$: Observable<TData>;
-
   trigger() {
+    if (this.triggerSubject.closed) return;
     this.triggerSubject.next();
+    this.triggerSubject.complete();
   }
 }
