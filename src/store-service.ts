@@ -507,9 +507,9 @@ export abstract class StoreService<TState extends Record<string, any>> {
    * @protected
    * @param selector - A method to map the state to the desired shape
    */
-  protected selectNotNull<TSelect>(selector: (state: TState) => TSelect): Observable<TSelect>;
-  protected selectNotNull<TSelect, TMod>(selector: (state: TState) => TSelect, modify?: (data: NonNullable<TSelect>) => TMod): Observable<TSelect|TMod> {
-    return this.selector<TSelect|TMod>(state$ => {
+  protected selectNotNull<TSelect>(selector: (state: TState) => TSelect): Observable<NonNullable<TSelect>>;
+  protected selectNotNull<TSelect, TMod>(selector: (state: TState) => TSelect, modify?: (data: NonNullable<TSelect>) => TMod): Observable<NonNullable<TSelect>|TMod> {
+    return this.selector<NonNullable<TSelect>|TMod>(state$ => {
       const base$ = state$.pipe(map(selector), filter((x) : x is NonNullable<TSelect> => x != null));
       if (!modify) return base$;
       return base$.pipe(map(modify));
