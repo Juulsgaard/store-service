@@ -14,6 +14,8 @@ export interface DeferredCommandOptions<TPayload, TData> {
   showError: boolean;
   errorMessage?: string;
   successMessage?: string | ((data: TData, payload: TPayload) => string);
+  /** An effect action that is triggered after a successful command action */
+  afterEffect?: (data: TData, payload: TPayload) => void;
 }
 
 /**
@@ -74,7 +76,11 @@ export class DeferredCommand<TState, TPayload, TData>  extends StoreCommand<TSta
     ));
 
     state
-      .then(() => this.context.endLoad(this))
+      .then(data => {
+        this.context.endLoad(this);
+        // Use timeout to ensure effect runs after reducer
+        setTimeout(() => this.options.afterEffect?.(data, payload));
+      })
       .catch(() => this.context.failLoad(this));
 
     return state;

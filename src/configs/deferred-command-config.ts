@@ -37,6 +37,15 @@ class DeferredCommandOptionConfig<TPayload, TData> {
     this.options.successMessage = message;
     return this;
   }
+
+  /**
+   * Add an action that will be run after a successful command action
+   * @param effect
+   */
+  withAfterEffect(effect: (data: TData, payload: TPayload) => void): this {
+    this.options.afterEffect = effect;
+    return this;
+  }
 }
 
 /**
