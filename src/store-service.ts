@@ -79,34 +79,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
    * A context object that allows commands to interact with the store
    * @private
    */
-  protected context: StoreServiceContext<TState> = {
-    getCommandName: cmd => this.getCommandName(cmd),
-    applyCommand: reducer$ => this.reducerQueue$.next(reducer$),
-    getLoadState: (cmd: StoreCommand<TState>, requestId?: string) => this.getLoadState$(cmd, requestId).value,
-    getLoadState$: (cmd: StoreCommand<TState>, requestId?: string) => this.getLoadState$(cmd, requestId).asObservable(),
-    getFailureState$: (cmd: StoreCommand<TState>, requestId?: string) => this.getFailureState$(cmd, requestId).asObservable(),
-    displayError: this.configService.displayError.bind(this.configService),
-    displaySuccess: this.configService.displaySuccess.bind(this.configService),
-    logActionRetry: this.configService.logActionRetry.bind(this.configService),
-    startLoad: (cmd: StoreCommand<TState>, requestId?: string) => {
-      this.startLoad(cmd);
-      if (requestId) this.startLoad(cmd, requestId)
-    },
-    endLoad: (cmd: StoreCommand<TState>, requestId?: string) => {
-      this.endLoad(cmd);
-      if (requestId) this.endLoad(cmd, requestId)
-    },
-    failLoad: (cmd: StoreCommand<TState>, requestId?: string) => {
-      this.failLoad(cmd);
-      if (requestId) this.failLoad(cmd, requestId)
-    },
-    resetFailState: (cmd: StoreCommand<TState>, requestId?: string) => {
-      this.resetFailState(cmd);
-      if (requestId) this.resetFailState(cmd, requestId)
-    },
-    isProduction: this.configService.isProduction,
-    errorIsCritical: this.configService.errorIsCritical.bind(this.configService)
-  }
+  protected context: StoreServiceContext<TState>;
 
   /**
    * A queue of reducer transactions
@@ -124,7 +97,38 @@ export abstract class StoreService<TState extends Record<string, any>> {
     this.storeName = titleCase(this.constructor.name);
 
     this.startQueue();
+
+    this.context = {
+      getCommandName: cmd => this.getCommandName(cmd),
+      applyCommand: reducer$ => this.reducerQueue$.next(reducer$),
+      getLoadState: (cmd: StoreCommand<TState>, requestId?: string) => this.getLoadState$(cmd, requestId).value,
+      getLoadState$: (cmd: StoreCommand<TState>, requestId?: string) => this.getLoadState$(cmd, requestId).asObservable(),
+      getFailureState$: (cmd: StoreCommand<TState>, requestId?: string) => this.getFailureState$(cmd, requestId).asObservable(),
+      displayError: this.configService.displayError.bind(this.configService),
+      displaySuccess: this.configService.displaySuccess.bind(this.configService),
+      logActionRetry: this.configService.logActionRetry.bind(this.configService),
+      startLoad: (cmd: StoreCommand<TState>, requestId?: string) => {
+        this.startLoad(cmd);
+        if (requestId) this.startLoad(cmd, requestId)
+      },
+      endLoad: (cmd: StoreCommand<TState>, requestId?: string) => {
+        this.endLoad(cmd);
+        if (requestId) this.endLoad(cmd, requestId)
+      },
+      failLoad: (cmd: StoreCommand<TState>, requestId?: string) => {
+        this.failLoad(cmd);
+        if (requestId) this.failLoad(cmd, requestId)
+      },
+      resetFailState: (cmd: StoreCommand<TState>, requestId?: string) => {
+        this.resetFailState(cmd);
+        if (requestId) this.resetFailState(cmd, requestId)
+      },
+      isProduction: this.configService.isProduction,
+      errorIsCritical: this.configService.errorIsCritical.bind(this.configService)
+    }
   }
+
+
 
   //<editor-fold desc="Queue Logic">
   /**
@@ -148,7 +152,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
       // Find first action that isn't blocked
       const actionIndex = queue.findIndex(x => !typeQueues.has(x.type))
       if (actionIndex < 0) return;
-      const action = queue.splice(actionIndex, 1)[0];
+      const action = queue.splice(actionIndex, 1)[0]!;
 
       // Execute action
       if (action.runInTransaction) runTransaction(action);
