@@ -1,6 +1,5 @@
 export {StoreService} from "./store-service";
 export {CacheStoreService} from "./cache-store-service";
-export {LoadingState, ILoadingState} from "./loading-state"
 export {IStoreConfigService} from "./models/store-config-service"
 export {BaseReducers} from './collections/reducers';
 export {WhereItem} from './collections/list-selectors';

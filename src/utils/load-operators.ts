@@ -1,4 +1,4 @@
-import {ILoadingState} from "../loading-state";
+import { ILoadingState } from "@consensus-labs/rxjs-tools";
 import {concatMap, MonoTypeOperatorFunction, Observable, Subscription} from "rxjs";
 
 /**

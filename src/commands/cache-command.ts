@@ -4,11 +4,11 @@ import {CommandAction} from "../models/store-types";
 import {CacheCommandError, ActionCancelledError} from "../models/errors";
 import {map} from "rxjs/operators";
 import {StoreServiceContext} from "../configs/command-config";
-import {LoadingState} from "../loading-state";
 import {QueueAction} from "../models/queue-action";
 import {PlainCommand} from "./plain-command";
 import {StoreCommand, StoreCommandUnion} from "../models/base-commands";
 import {IdMap, parseIdMap} from "../lib/id-map";
+import {IValueLoadingState, Loading, LoadingState} from "@consensus-labs/rxjs-tools";
 
 
 /**
@@ -183,14 +183,14 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
    * Dispatch the command/fallback and return a LoadingState to monitor progress of both
    * @param payload - The command/cache payload
    */
-  observe(payload: TPayload & TXPayload): LoadingState<TData | TXData>
+  observe(payload: TPayload & TXPayload): IValueLoadingState<TData | TXData>
   /**
    * Dispatch the command/fallback and return a LoadingState to monitor progress of both
    * @param cachePayload - The cache payload
    * @param commandPayload - The command payload
    */
-  observe(cachePayload: TPayload, commandPayload: TXPayload): LoadingState<TData | TXData>
-  observe(cachePayload: TPayload | (TPayload & TXPayload), commandPayload?: TXPayload): LoadingState<TData | TXData> {
+  observe(cachePayload: TPayload, commandPayload: TXPayload): IValueLoadingState<TData | TXData>
+  observe(cachePayload: TPayload | (TPayload & TXPayload), commandPayload?: TXPayload): IValueLoadingState<TData | TXData> {
 
     const cmdPayload = commandPayload ?? cachePayload as TXPayload;
 
@@ -198,18 +198,18 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
 
     // Throw error if initial load has already been loaded
     if (this.alreadyLoaded(cachePayload)) {
-      return LoadingState.FromError(() => new ActionCancelledError('This cache action has already been loaded', cachePayload));
+      return Loading.FromError(() => new ActionCancelledError('This cache action has already been loaded', cachePayload));
     }
 
     // Throw error if the action is concurrent and concurrent are set to be cancelled
     if (this.cancelConcurrent(cachePayload)) {
-      return LoadingState.FromError(() => new ActionCancelledError('Actions was cancelled because another is already running', cachePayload))
+      return Loading.FromError(() => new ActionCancelledError('Actions was cancelled because another is already running', cachePayload))
     }
 
     // Throw error if initial load has already been loaded for fallback
     if (this.fallbackCommand && 'alreadyLoaded' in this.fallbackCommand) {
       if (this.fallbackCommand.alreadyLoaded(cmdPayload)) {
-        return LoadingState.FromError(() => new ActionCancelledError('This cache fallback action has already been loaded', cachePayload))
+        return Loading.FromError(() => new ActionCancelledError('This cache fallback action has already been loaded', cachePayload))
       }
     }
     //</editor-fold>
@@ -220,9 +220,9 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
 
     //<editor-fold desc="State">
     const sharedState = new Subject<TData | TXData | void>();
-    const sharedLoadingState = new LoadingState(sharedState) as LoadingState<TData | TXData>;
+    const sharedLoadingState = Loading.Async<TData | TXData | void>(sharedState) as LoadingState<TData | TXData>;
 
-    const online = navigator.onLine;
+    const online = typeof navigator == 'undefined' ? true : navigator.onLine;
     const maxAge = online ? this.options.onlineMaxAge : this.options.offlineMaxAge;
     const absoluteAge = online ? !!this.options.onlineAbsoluteAge : !!this.options.offlineAbsoluteAge;
     //</editor-fold>
@@ -271,7 +271,7 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
     //<editor-fold desc="Cache Reducer Action">
 
     // Create a delayed loading state
-    const cacheLoad = LoadingState.Delayed(
+    const cacheLoad = Loading.Delayed(
       () => this.options.action({
         options: {maxAge, absoluteAge},
         payload: cachePayload

@@ -2,9 +2,9 @@ import {logFailedAction, logSuccessfulAction} from "../models/logging";
 import {EMPTY, startWith, switchMap, tap} from "rxjs";
 import {CommandAction, Reducer} from "../models/store-types";
 import {StoreServiceContext} from "../configs/command-config";
-import {LoadingState} from "../loading-state";
 import {QueueAction} from "../models/queue-action";
 import {StoreCommand} from "../models/base-commands";
+import {Loading, LoadingState} from '@consensus-labs/rxjs-tools';
 
 /**
  * The options for a Deferred Command
@@ -47,7 +47,7 @@ export class DeferredCommand<TState, TPayload, TData>  extends StoreCommand<TSta
     this.context.startLoad(this);
 
     // Set up a delayed loading state
-    const state = LoadingState.Delayed(() => this.options.action(payload))
+    const state = Loading.Delayed(() => this.options.action(payload))
 
     // Define the execution for the Command
     const execute = () => {

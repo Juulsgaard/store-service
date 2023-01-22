@@ -4,11 +4,11 @@ import {CommandAction} from "../models/store-types";
 import {ActionCancelledError} from "../models/errors";
 import {map} from "rxjs/operators";
 import {StoreServiceContext} from "../configs/command-config";
-import {LoadingState} from "../loading-state";
 import {QueueAction} from "../models/queue-action";
 import {retryAction} from "../lib/retry";
 import {PayloadCommand} from "../models/base-commands";
 import {IdMap} from "../lib/id-map";
+import {IValueLoadingState, Loading, LoadingState} from "@consensus-labs/rxjs-tools";
 
 
 /**
@@ -75,7 +75,7 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
    * Dispatch the command and return a LoadingState to monitor command progress
    * @param payload - The command payload
    */
-  observe(payload: TPayload): LoadingState<TData> {
+  observe(payload: TPayload): IValueLoadingState<TData> {
     return this.execute(payload, false);
   }
 
@@ -84,7 +84,7 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
    * Will load initial load commands even if they have already been loaded
    * @param payload - The command payload
    */
-  forceObserve(payload: TPayload): LoadingState<TData> {
+  forceObserve(payload: TPayload): IValueLoadingState<TData> {
     return this.execute(payload, true);
   }
 
@@ -93,15 +93,15 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
    * @param payload - The command payload
    * @param ignoreInitial - Ignore initial load constraint
    */
-  private execute(payload: TPayload, ignoreInitial: boolean): LoadingState<TData> {
+  private execute(payload: TPayload, ignoreInitial: boolean): IValueLoadingState<TData> {
 
     // Throw error if initial load has already been loaded
     if (!ignoreInitial) {
       if (this.alreadyLoaded(payload)) {
-        return LoadingState.FromError(() => new ActionCancelledError('This action has already been loaded', payload))
+        return Loading.FromError(() => new ActionCancelledError('This action has already been loaded', payload))
       }
       if (this.cancelConcurrent(payload)) {
-        return LoadingState.FromError(() => new ActionCancelledError('Actions was cancelled because another is already running', payload))
+        return Loading.FromError(() => new ActionCancelledError('Actions was cancelled because another is already running', payload))
       }
     }
 
@@ -111,7 +111,7 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
 
     // Create a delayed loading state
     const action = () => this.options.action(payload);
-    const loadState = LoadingState.Delayed(
+    const loadState = Loading.Delayed(
       this.options.retries
         ? retryAction(action, this.options.retries, this.context.errorIsCritical, this.logRetry.bind(this))
         : action,

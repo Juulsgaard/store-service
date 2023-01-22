@@ -6,9 +6,7 @@ import 'fake-indexeddb/auto';
 import {sleep} from "@consensus-labs/ts-tools";
 import {CacheDatabaseContext} from "../caching/caching-interface";
 
-// noinspection JSConstantReassignment
-global.navigator = {
-  ...global.navigator,
+var navigator = {
   onLine: true
 };
 
@@ -29,6 +27,13 @@ class StoreConfig implements IStoreConfigService {
   }
 
   displaySuccess(message: string): void {
+  }
+
+  errorIsCritical(error: any): boolean {
+    return false;
+  }
+
+  logActionRetry(command: string, attempt: number, nextDelay: number): void {
   }
 
 }
