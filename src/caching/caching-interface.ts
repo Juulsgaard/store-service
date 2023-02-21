@@ -13,6 +13,9 @@ export class CacheDatabaseContext {
   private _error?: string;
   get error() {return this._error ?? `Can't access IndexedDB`}
 
+  private _enabled = true;
+  get enabled() {return this._enabled}
+
   constructor(private adapter: CacheAdapter, private databaseId: string) {
     this.setupQueue();
   }
@@ -21,7 +24,18 @@ export class CacheDatabaseContext {
     this.setupQueue();
   }
 
+  /** Enable the database for use */
+  enable() {
+    this._enabled = true;
+  }
+
+  /** Disable the database */
+  disable() {
+    this._enabled = false;
+  }
+
   async isAvailable() {
+    if (!this._enabled) return false;
     if (this._available != null) return await this._available;
     this._available = this.adapter.isAvailable(err => this._error = err);
     this._available.then(available => {
@@ -46,6 +60,7 @@ export class CacheDatabaseContext {
   }
 
   async init(): Promise<void> {
+    if (!this._enabled) throw Error("The database is currently disabled");
     if (this.initialising) return await this.initialising;
     this.initialising = this._init();
     return await this.initialising;
