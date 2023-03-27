@@ -289,6 +289,7 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
 
   async commit(): Promise<void> {
     if (this.readonly) return;
+    if (!this.transaction.commit) return;
     this.transaction.commit();
   }
 
