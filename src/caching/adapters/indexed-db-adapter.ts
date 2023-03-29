@@ -289,7 +289,7 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
 
   async commit(): Promise<void> {
     if (this.readonly) return;
-    if (!this.transaction.commit) return;
+    if (!this.transaction.commit) throw Error('Unable to save data to disk. Please ensure your system is up to date.')
     this.transaction.commit();
   }
 
