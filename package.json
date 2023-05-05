@@ -1,6 +1,6 @@
 {
   "name": "@consensus-labs/store-service",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "A state management system for Javascript",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
