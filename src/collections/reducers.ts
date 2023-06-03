@@ -119,4 +119,45 @@ export class BaseReducers {
     };
   }
 
+  /**
+   * Replace an element in a list
+   * Element is targeted based on ID
+   * @param add - If true the element is added when no match is found
+   */
+  static replaceById<TState extends WithId[]>(add = false): ListReducer<TState, ArrayType<TState>> {
+    return (data, state) => {
+      const index = state.findIndex(x => x.id === data.id);
+
+      if (index < 0) {
+        if (add) return [...state, data] as TState;
+        else return state;
+      }
+
+      const newState = [...state];
+      newState.splice(index, 1, data);
+      return newState as TState;
+    };
+  }
+
+  /**
+   * Replace an element in a list
+   * Element is targeted based on given selector
+   * @param selector - Selector for targeting element
+   * @param add - If true the element is added when no match is found
+   */
+  static replaceElement<TState extends any[]>(selector: (element: ArrayType<TState>) => string, add = false): ListReducer<TState, ArrayType<TState>> {
+    return (data, state) => {
+      const index = state.findIndex(x => selector(x) === selector(data));
+
+      if (index < 0) {
+        if (add) return [...state, data] as TState;
+        else return state;
+      }
+
+      const newState = [...state];
+      newState.splice(index, 1, data);
+      return newState as TState;
+    };
+  }
+
 }
