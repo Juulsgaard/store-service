@@ -67,9 +67,9 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
     super(context);
     this.getRequestId = this.options.requestId && parseIdMap(this.options.requestId);
 
-    this.cacheLoading$ = super.loading$;
-    this.cacheLoaded$ = super.loaded$;
-    this.cacheFailed$ = super.failed$;
+    this.cacheLoading$ = this.loading$;
+    this.cacheLoaded$ = this.loaded$;
+    this.cacheFailed$ = this.failed$;
 
     if (fallbackCommand) {
       this.loading$ = combineLatest([this.cacheLoading$, fallbackCommand.loading$]).pipe(
