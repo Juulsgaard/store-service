@@ -1,5 +1,5 @@
 import {Observable, OperatorFunction, startWith} from "rxjs";
-import {Future, LoadingState} from "@consensus-labs/rxjs-tools";
+import {Future, LoadingState} from "@juulsgaard/rxjs-tools";
 import {map} from "rxjs/operators";
 
 /**

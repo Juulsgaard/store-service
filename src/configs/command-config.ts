@@ -6,7 +6,7 @@ import {rootReducerScope} from "../models/reducer-scope";
 import {PlainCommandObjectConfig} from "./plain-command-config";
 import {QueueAction} from "../models/queue-action";
 import {StoreCommand} from "../models/base-commands";
-import {SimpleObject} from "@consensus-labs/ts-tools";
+import {SimpleObject} from "@juulsgaard/ts-tools";
 
 /**
  * A context element allowing commands to interface with the store

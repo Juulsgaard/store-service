@@ -1,5 +1,5 @@
 import {Observable} from "rxjs";
-import {ArrayType} from "@consensus-labs/ts-tools";
+import {ArrayType} from "@juulsgaard/ts-tools";
 
 /**
  * The signature for a Command Action

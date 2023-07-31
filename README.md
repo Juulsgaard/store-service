@@ -1,19 +1,14 @@
 # Store Service
 
+![NPM License](https://img.shields.io/npm/v/@juulsgaard/store-service)
+![NPM License](https://img.shields.io/npm/l/@juulsgaard/store-service)
+![NPM Downloads](https://img.shields.io/npm/dw/@juulsgaard/store-service)
+
 A state management system for Javascript
 
-## Getting started
+## Description
 
-In order to be able to publish the NPM package you will need to add your GitLab API token (API Access) via the following command
+Store Service is a state management library revolving around Stores and Commands.
 
-```cmd
-npm config set //gitlab.com/api/v4/projects/36878880/packages/npm/:_authToken $AUTH_TOKEN$
-```
-
-Where `$AUTH_TOKEN$` is your GitLab API token
-
-You will also need to add the following for package download:
-
-```cmd
-npm config set //gitlab.com/api/v4/packages/npm/:_authToken $AUTH_TOKEN$
-```
+A Store is a class with an internal state that can in turn be mutated by Commands added to the Store.
+The state itself is immutable, so every command that affects the state uses a reducer to create a new state.

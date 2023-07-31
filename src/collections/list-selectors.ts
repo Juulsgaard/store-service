@@ -1,4 +1,4 @@
-import {MapFunc, WithId} from "@consensus-labs/ts-tools";
+import {MapFunc, WithId} from "@juulsgaard/ts-tools";
 import {ListSelector} from "../models/store-types";
 
 export class WhereItem {

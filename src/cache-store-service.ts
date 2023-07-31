@@ -1,6 +1,6 @@
 import {StoreService} from "./store-service";
 import {IStoreConfigService} from "./models/store-config-service";
-import {dashCase, SimpleObject} from "@consensus-labs/ts-tools";
+import {dashCase, SimpleObject} from "@juulsgaard/ts-tools";
 import {CacheDatabaseContext} from "./caching/caching-interface";
 import {CacheConfig} from "./caching/cache-config";
 import {Observable, ReplaySubject, skip} from "rxjs";

@@ -8,7 +8,7 @@ import {QueueAction} from "../models/queue-action";
 import {retryAction} from "../lib/retry";
 import {PayloadCommand} from "../models/base-commands";
 import {IdMap} from "../lib/id-map";
-import {IValueLoadingState, Loading, LoadingState} from "@consensus-labs/rxjs-tools";
+import {IValueLoadingState, Loading} from "@juulsgaard/rxjs-tools";
 
 
 /**

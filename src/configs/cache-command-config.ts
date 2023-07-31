@@ -1,9 +1,9 @@
 import {StoreServiceContext} from "./command-config";
 import {
-  ActionReducerCoalesce, ActionReducerData, applyScopedObjectReducer, createActionReducerCoalesce, listReducerScope, objectReducerScope, ReducerScope,
-  rootReducerScope
+  ActionReducerCoalesce, ActionReducerData, applyScopedObjectReducer, createActionReducerCoalesce, listReducerScope,
+  objectReducerScope, ReducerScope, rootReducerScope
 } from "../models/reducer-scope";
-import {ArrayType, Conditional, KeysOfTypeOrNull, SimpleObject, ValueOfKey} from "@consensus-labs/ts-tools";
+import {ArrayType, Conditional, KeysOfTypeOrNull, SimpleObject, ValueOfKey} from "@juulsgaard/ts-tools";
 import {ListReducer, ListSelector, ObjectReducer} from "../models/store-types";
 import {CacheCommand, CacheCommandOptions} from "../commands/cache-command";
 import {CacheChunk} from "../caching/cache-chunk";

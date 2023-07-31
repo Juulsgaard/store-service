@@ -1,5 +1,5 @@
 import {ListReducer} from "../models/store-types";
-import {ArrayType, WithId} from "@consensus-labs/ts-tools";
+import {ArrayType, WithId} from "@juulsgaard/ts-tools";
 
 
 export class BaseReducers {

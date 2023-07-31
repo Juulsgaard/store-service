@@ -1,14 +1,14 @@
 import {combineLatest, distinctUntilChanged, EMPTY, Observable, of, Subject, switchMap, tap} from "rxjs";
 import {logActionInformation, logFailedAction, logSuccessfulAction} from "../models/logging";
 import {CommandAction} from "../models/store-types";
-import {CacheCommandError, ActionCancelledError} from "../models/errors";
+import {ActionCancelledError, CacheCommandError} from "../models/errors";
 import {map} from "rxjs/operators";
 import {StoreServiceContext} from "../configs/command-config";
 import {QueueAction} from "../models/queue-action";
 import {PlainCommand} from "./plain-command";
 import {StoreCommand, StoreCommandUnion} from "../models/base-commands";
 import {IdMap, parseIdMap} from "../lib/id-map";
-import {IValueLoadingState, Loading, LoadingState} from "@consensus-labs/rxjs-tools";
+import {IValueLoadingState, Loading, LoadingState} from "@juulsgaard/rxjs-tools";
 
 
 /**

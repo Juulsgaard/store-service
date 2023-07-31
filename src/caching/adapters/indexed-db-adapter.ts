@@ -1,5 +1,5 @@
 import {CacheAdapter, CacheItemData, CacheTransactionAdapter} from "../caching-adapter";
-import {sleep} from "@consensus-labs/ts-tools";
+import {sleep} from "@juulsgaard/ts-tools";
 
 export class IndexedDbAdapter implements CacheAdapter {
 

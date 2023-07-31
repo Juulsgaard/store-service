@@ -1,4 +1,4 @@
-import {ArrayType, isFunction} from "@consensus-labs/ts-tools";
+import {ArrayType, isFunction} from "@juulsgaard/ts-tools";
 
 export type ReducerScope<TRoot, TState, TData> = (root: TRoot, data: TData, func: (state: TState) => TState) => TRoot;
 export type ActionReducerData<TPayload, TData> = { payload: TPayload, data: TData };

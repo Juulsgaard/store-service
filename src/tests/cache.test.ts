@@ -3,7 +3,7 @@ import {CacheStoreService} from "../cache-store-service";
 import {IndexedDbAdapter} from "../caching/adapters/indexed-db-adapter";
 import {BaseReducers} from "../collections/reducers";
 import 'fake-indexeddb/auto';
-import {sleep} from "@consensus-labs/ts-tools";
+import {sleep} from "@juulsgaard/ts-tools";
 import {CacheDatabaseContext} from "../caching/caching-interface";
 
 var navigator = {

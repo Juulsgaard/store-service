@@ -1,10 +1,11 @@
 import {ActionCommand, ActionCommandOptions} from "../commands/action-command";
 import {
-  ActionReducerCoalesce, ActionReducerData, applyScopedObjectReducer, createActionReducerCoalesce, listReducerScope, objectReducerScope, ReducerScope
+  ActionReducerCoalesce, ActionReducerData, applyScopedObjectReducer, createActionReducerCoalesce, listReducerScope,
+  objectReducerScope, ReducerScope
 } from "../models/reducer-scope";
 import {ListReducer, ListSelector, ObjectReducer} from "../models/store-types";
 import {StoreServiceContext} from "./command-config";
-import {ArrayType, Conditional, KeysOfTypeOrNull, SimpleObject, ValueOfKey} from "@consensus-labs/ts-tools";
+import {ArrayType, Conditional, KeysOfTypeOrNull, SimpleObject, ValueOfKey} from "@juulsgaard/ts-tools";
 import {IdMap} from "../lib/id-map";
 
 

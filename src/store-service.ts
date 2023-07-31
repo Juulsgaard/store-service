@@ -1,12 +1,14 @@
-import {BehaviorSubject, distinctUntilChanged, filter, isObservable, Observable, shareReplay, Subject, Subscription, tap} from "rxjs";
+import {
+  BehaviorSubject, distinctUntilChanged, filter, isObservable, Observable, Subject, Subscription, tap
+} from "rxjs";
 import {StoreClientCommandConfig, StoreCommandConfig, StoreServiceContext} from "./configs/command-config";
 import {Reducer} from "./models/store-types";
 import {IStoreConfigService} from "./models/store-config-service";
 import {map} from "rxjs/operators";
-import {arrToMap, deepCopy, deepFreeze, titleCase} from "@consensus-labs/ts-tools";
+import {arrToMap, deepCopy, deepFreeze, titleCase} from "@juulsgaard/ts-tools";
 import {QueueAction} from "./models/queue-action";
 import {StoreCommand} from "./models/base-commands";
-import {cache} from "@consensus-labs/rxjs-tools";
+import {cache} from "@juulsgaard/rxjs-tools";
 
 /**
  * A service managing the store state

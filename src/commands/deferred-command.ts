@@ -4,7 +4,7 @@ import {CommandAction, Reducer} from "../models/store-types";
 import {StoreServiceContext} from "../configs/command-config";
 import {QueueAction} from "../models/queue-action";
 import {StoreCommand} from "../models/base-commands";
-import {Loading, LoadingState} from '@consensus-labs/rxjs-tools';
+import {Loading, LoadingState} from '@juulsgaard/rxjs-tools';
 
 /**
  * The options for a Deferred Command

@@ -1,8 +1,10 @@
-import {applyScopedObjectReducer, listReducerScope, objectReducerScope, ReducerCoalesce, ReducerScope} from "../models/reducer-scope";
+import {
+  applyScopedObjectReducer, listReducerScope, objectReducerScope, ReducerCoalesce, ReducerScope
+} from "../models/reducer-scope";
 import {ListReducer, ListSelector, ObjectReducer} from "../models/store-types";
 import {StoreServiceContext} from "./command-config";
 import {DeferredCommand, DeferredCommandOptions} from "../commands/deferred-command";
-import {ArrayType, Conditional, KeysOfType, KeysOfTypeOrNull, SimpleObject, ValueOfKey} from "@consensus-labs/ts-tools";
+import {ArrayType, Conditional, KeysOfTypeOrNull, SimpleObject, ValueOfKey} from "@juulsgaard/ts-tools";
 
 /**
  * A base config that allows modification of an option object
