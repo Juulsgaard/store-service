@@ -41,8 +41,8 @@ export abstract class StoreService<TState extends Record<string, any>> {
    * Generated names for all actions
    * @private
    */
-  private _actionNames?: Map<BaseCommand<TState>, string>;
-  private get actionNames(): Map<BaseCommand<TState>, string> {
+  private _actionNames?: Map<BaseCommand, string>;
+  private get actionNames(): Map<BaseCommand, string> {
     if (this._actionNames) return this._actionNames;
     this._actionNames = arrToMap(
       Object.entries(this).filter(([_, val]) => val instanceof BaseCommand),
@@ -152,7 +152,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
 
     const subs = new Subscription();
     const queue: QueueAction<TState>[] = [];
-    const typeQueues = new Set<BaseCommand<TState>>();
+    const typeQueues = new Set<BaseCommand>();
     let transaction: Observable<Reducer<TState>> | undefined;
     const self = this;
 

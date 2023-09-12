@@ -5,7 +5,7 @@ import {BaseCommand} from "./base-commands";
 export class QueueAction<TState> {
 
   constructor(
-    public type: BaseCommand<TState>,
+    public type: BaseCommand,
     private action: () => Reducer<TState>|Observable<Reducer<TState>>|void,
     private onCancel?: () => void,
     public queued: boolean = false,

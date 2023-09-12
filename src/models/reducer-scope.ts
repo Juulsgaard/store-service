@@ -1,4 +1,4 @@
-import {ArrayType, isFunction, MapFunc} from "@juulsgaard/ts-tools";
+import {ArrayType, isFunction} from "@juulsgaard/ts-tools";
 
 export type ReducerScope<TRoot, TState, TData> = (root: TRoot, data: TData, func: (state: TState) => TState) => TRoot;
 export type ActionReducerData<TPayload, TData> = { payload: TPayload, data: TData };
@@ -20,7 +20,7 @@ export function objectReducerScope<TRoot, TState extends Record<string, any>, TT
   key: keyof TState,
   path: string[],
   coalesce?: ReducerCoalesce<TData, TTarget, TState>,
-  modify?: MapFunc<TState, TState>
+  modify?: (data: TData, state: TState) => TState
 ): ReducerScope<TRoot, TTarget, TData> {
   return (root, data, func) => {
     return prevReducer(root, data, (state: TState) => {
@@ -39,7 +39,7 @@ export function objectReducerScope<TRoot, TState extends Record<string, any>, TT
       }
 
       if (modify) {
-        state = modify(state);
+        state = modify(data, state);
       }
 
       // Apply sub-reducer
