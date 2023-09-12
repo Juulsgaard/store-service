@@ -92,9 +92,11 @@ class ActionCommandOptionConfig<TPayload, TData> {
   /**
    * Add an action that will be run after a successful command action
    * @param effect
+   * @param beforeReducer - Make the effect execute before the reducer
    */
-  withAfterEffect(effect: (data: TData, payload: TPayload) => void): this {
-    this.options.afterEffect = effect;
+  withAfterEffect(effect: (data: TData, payload: TPayload) => void, beforeReducer = false): this {
+    if (beforeReducer) this.options.preEffect = effect;
+    else this.options.afterEffect = effect;
     return this;
   }
 

@@ -26,6 +26,8 @@ export interface ActionCommandOptions<TPayload, TData> {
   cancelConcurrent: boolean;
   /** An effect action that is triggered after a successful command action */
   afterEffect?: (data: TData, payload: TPayload) => void;
+  /** An effect action that is triggered after a successful command action, but before the reducer */
+  preEffect?: (data: TData, payload: TPayload) => void;
   /** A list of retired. Every number represents the amount of time to wait before the retry attempt */
   retries?: number[];
 }
@@ -145,6 +147,7 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
     loadState
       .then(data => {
         this.context.endLoad(this, requestId);
+        this.options.preEffect?.(data, payload);
         // Use timeout to ensure effect runs after reducer
         setTimeout(() => this.options.afterEffect?.(data, payload));
       })
