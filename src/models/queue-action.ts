@@ -1,11 +1,11 @@
 import {Reducer} from "./store-types";
 import {EMPTY, isObservable, Observable, of, tap} from "rxjs";
-import {StoreCommand} from "./base-commands";
+import {BaseCommand} from "./base-commands";
 
 export class QueueAction<TState> {
 
   constructor(
-    public type: StoreCommand<TState>,
+    public type: BaseCommand<TState>,
     private action: () => Reducer<TState>|Observable<Reducer<TState>>|void,
     private onCancel?: () => void,
     public queued: boolean = false,

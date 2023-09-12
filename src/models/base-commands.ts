@@ -6,10 +6,20 @@ import {DeferredCommand} from "../commands/deferred-command";
 import {PlainCommand} from "../commands/plain-command";
 import {IdMap, parseIdMap} from "../lib/id-map";
 
+export abstract class BaseCommand<TState> {
+
+  abstract get name(): string;
+  protected context: StoreServiceContext<TState>
+
+  protected constructor(context: StoreServiceContext<TState>) {
+    this.context = context;
+  }
+}
+
 /**
  * The base Command class
  */
-export abstract class StoreCommand<TState> {
+export abstract class StoreCommand<TState> extends BaseCommand<TState> {
 
   abstract get initialLoad(): boolean;
 
@@ -26,10 +36,8 @@ export abstract class StoreCommand<TState> {
    */
   failed$: Observable<boolean>;
 
-  protected context: StoreServiceContext<TState>
-
   protected constructor(context: StoreServiceContext<TState>) {
-    this.context = context;
+    super(context);
 
     this.loading$ = context.getLoadState$(this).pipe(
       map(x => !!x && x > 0),

@@ -1,19 +1,28 @@
 import {
   BehaviorSubject, distinctUntilChanged, filter, isObservable, Observable, Subject, Subscription, tap
 } from "rxjs";
-import {StoreClientCommandConfig, StoreCommandConfig, StoreServiceContext} from "./configs/command-config";
+import {
+  BaseStoreServiceContext, StoreClientCommandConfig, StoreCommandConfig, StoreServiceContext
+} from "./configs/command-config";
 import {Reducer} from "./models/store-types";
 import {IStoreConfigService} from "./models/store-config-service";
 import {map} from "rxjs/operators";
 import {arrToMap, deepCopy, deepFreeze, titleCase} from "@juulsgaard/ts-tools";
 import {QueueAction} from "./models/queue-action";
-import {StoreCommand} from "./models/base-commands";
+import {BaseCommand, StoreCommand} from "./models/base-commands";
 import {cache} from "@juulsgaard/rxjs-tools";
 
 /**
  * A service managing the store state
  */
 export abstract class StoreService<TState extends Record<string, any>> {
+
+  /**
+   * Get the context object from a store.
+   * This can be used to extend the Store with custom commands.
+   * @param store - The store to extract the context from
+   */
+  static ExtractContext<T extends Record<string, any>>(store: StoreService<T>): BaseStoreServiceContext<T> {return store.context}
 
   private _state$: BehaviorSubject<TState>;
   /**
@@ -32,11 +41,11 @@ export abstract class StoreService<TState extends Record<string, any>> {
    * Generated names for all actions
    * @private
    */
-  private _actionNames?: Map<StoreCommand<TState>, string>;
-  private get actionNames(): Map<StoreCommand<TState>, string> {
+  private _actionNames?: Map<BaseCommand<TState>, string>;
+  private get actionNames(): Map<BaseCommand<TState>, string> {
     if (this._actionNames) return this._actionNames;
     this._actionNames = arrToMap(
-      Object.entries(this).filter(([_, val]) => val instanceof StoreCommand),
+      Object.entries(this).filter(([_, val]) => val instanceof BaseCommand),
       ([_, val]) => val,
       ([key]) => titleCase(key)
     );
@@ -143,7 +152,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
 
     const subs = new Subscription();
     const queue: QueueAction<TState>[] = [];
-    const typeQueues = new Set<StoreCommand<TState>>();
+    const typeQueues = new Set<BaseCommand<TState>>();
     let transaction: Observable<Reducer<TState>> | undefined;
     const self = this;
 

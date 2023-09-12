@@ -11,11 +11,9 @@ import {SimpleObject} from "@juulsgaard/ts-tools";
 /**
  * A context element allowing commands to interface with the store
  */
-export interface StoreServiceContext<TState> {
+export interface StoreServiceContext<TState> extends BaseStoreServiceContext<TState> {
 
   getCommandName(cmd: StoreCommand<TState>): string;
-
-  applyCommand(action: QueueAction<TState>): void;
 
   displaySuccess(message: string): void;
 
@@ -37,9 +35,12 @@ export interface StoreServiceContext<TState> {
 
   resetFailState(cmd: StoreCommand<TState>, requestId?: string): void;
 
-  isProduction: boolean;
-
   errorIsCritical: (error: any) => boolean;
+}
+
+export interface BaseStoreServiceContext<TState> {
+  applyCommand(action: QueueAction<TState>): void;
+  isProduction: boolean;
 }
 
 export class StoreCommandConfig<TState extends SimpleObject> {
