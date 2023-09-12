@@ -1,25 +1,18 @@
 import {StoreServiceContext} from "../configs/command-config";
 import {map} from "rxjs/operators";
 import {distinctUntilChanged, Observable} from "rxjs";
-import {ActionCommand} from "../commands/action-command";
-import {DeferredCommand} from "../commands/deferred-command";
-import {PlainCommand} from "../commands/plain-command";
+import {ActionCommand, DeferredCommand, PlainCommand} from "../commands";
 import {IdMap, parseIdMap} from "../lib/id-map";
 
-export abstract class BaseCommand<TState> {
+export abstract class BaseCommand {
 
   abstract get name(): string;
-  protected context: StoreServiceContext<TState>
-
-  protected constructor(context: StoreServiceContext<TState>) {
-    this.context = context;
-  }
 }
 
 /**
  * The base Command class
  */
-export abstract class StoreCommand<TState> extends BaseCommand<TState> {
+export abstract class StoreCommand<TState> extends BaseCommand {
 
   abstract get initialLoad(): boolean;
 
@@ -36,8 +29,12 @@ export abstract class StoreCommand<TState> extends BaseCommand<TState> {
    */
   failed$: Observable<boolean>;
 
+  protected context: StoreServiceContext<TState>
+
   protected constructor(context: StoreServiceContext<TState>) {
-    super(context);
+    super();
+
+    this.context = context;
 
     this.loading$ = context.getLoadState$(this).pipe(
       map(x => !!x && x > 0),

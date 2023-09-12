@@ -1,4 +1,6 @@
-import {listReducerScope, objectReducerScope, ReducerCoalesce, ReducerScope} from "../models/reducer-scope";
+import {
+  applyScopedObjectReducer, listReducerScope, objectReducerScope, ReducerCoalesce, ReducerScope
+} from "../models/reducer-scope";
 import {ListReducer, ListSelector, ObjectReducer} from "../models/store-types";
 import {PlainCommand} from "../commands/plain-command";
 import {StoreServiceContext} from "./command-config";
@@ -59,7 +61,7 @@ export class PlainCommandObjectConfig<TRoot, TState extends Record<string, any>,
   withReducer(reducer: ObjectReducer<TState, TData>): PlainCommand<TRoot, TData> {
     return new PlainCommand(
       this.context,
-      (root, data) => this.scope(root, data, state => ({...state, ...reducer(data, state)}))
+      (root, data) => this.scope(root, data, state => applyScopedObjectReducer(state, reducer(data, state)))
     );
   }
 }

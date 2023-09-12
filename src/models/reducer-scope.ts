@@ -1,4 +1,4 @@
-import {ArrayType, isFunction} from "@juulsgaard/ts-tools";
+import {ArrayType, isFunction, MapFunc} from "@juulsgaard/ts-tools";
 
 export type ReducerScope<TRoot, TState, TData> = (root: TRoot, data: TData, func: (state: TState) => TState) => TRoot;
 export type ActionReducerData<TPayload, TData> = { payload: TPayload, data: TData };
@@ -19,7 +19,8 @@ export function objectReducerScope<TRoot, TState extends Record<string, any>, TT
   prevReducer: ReducerScope<TRoot, TState, TData>,
   key: keyof TState,
   path: string[],
-  coalesce?: ReducerCoalesce<TData, TTarget, TState>
+  coalesce?: ReducerCoalesce<TData, TTarget, TState>,
+  modify?: MapFunc<TState, TState>
 ): ReducerScope<TRoot, TTarget, TData> {
   return (root, data, func) => {
     return prevReducer(root, data, (state: TState) => {
@@ -35,6 +36,10 @@ export function objectReducerScope<TRoot, TState extends Record<string, any>, TT
       if (val === undefined) {
         console.warn(`Object prop '${path.join('.')}' not found in reducer`)
         return state;
+      }
+
+      if (modify) {
+        state = modify(state);
       }
 
       // Apply sub-reducer
