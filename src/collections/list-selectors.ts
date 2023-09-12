@@ -61,6 +61,10 @@ export class WhereItem {
     };
   }
 
+  static IdMatchesValue(id: string): ListSelector<WithId[], any, any> {
+    return () => (element) => element.id === id;
+  }
+
   /**
    * Select item where element matches data
    */
