@@ -174,6 +174,24 @@ export class ActionCommandObjectConfig<TRoot, TState extends Record<string, any>
   };
 
   /**
+   * Target a unit array property on the object
+   * @param key - The property name
+   * @param create - Add list if it doesn't exist
+   */
+  targetArray<TKey extends KeysOfTypeOrNull<TState, unknown[]>>(
+    key: TKey,
+    create = false
+  ): ActionCommandArrayConfig<TRoot, ValueOfKey<TState, TKey>, TPayload, TData> {
+    const path = [...this.path, key.toString()];
+    return new ActionCommandArrayConfig(
+      this.context,
+      this.options,
+      objectReducerScope(this.scope, key, path, create ? [] as TState[TKey] : undefined),
+      path,
+    );
+  };
+
+  /**
    * Apply a modification to the payload / data before the reducer
    * @param func - The data modification
    */
@@ -209,38 +227,15 @@ export class ActionCommandObjectConfig<TRoot, TState extends Record<string, any>
  * A config for building the Action Command reducer
  * List scoped
  */
-class ActionCommandListConfig<TRoot, TState extends SimpleObject[], TPayload, TData> extends ActionCommandOptionConfig<TPayload, TData> {
+class ActionCommandArrayConfig<TRoot, TState extends unknown[], TPayload, TData> extends ActionCommandOptionConfig<TPayload, TData> {
 
   constructor(
-    private context: StoreServiceContext<TRoot>,
+    protected context: StoreServiceContext<TRoot>,
     options: ActionCommandOptions<TPayload, TData>,
-    private scope: ReducerScope<TRoot, TState, ActionReducerData<TPayload, TData>>,
-    private path: string[]
+    protected scope: ReducerScope<TRoot, TState, ActionReducerData<TPayload, TData>>,
+    protected path: string[]
   ) {
     super(options);
-  }
-
-  /**
-   * Target a list item in the list
-   * @param selector - The selector for the list item
-   * @param coalesce - A default value to append if item isn't found
-   */
-  targetItem(
-    selector: Conditional<ArrayType<TState>, Record<string, any>, ListSelector<TState, TPayload, TData>>,
-    coalesce?: ActionReducerCoalesce<TPayload, TData, ArrayType<TState>, TState>
-  ): ActionCommandObjectConfig<TRoot, ArrayType<TState>, TPayload, TData> {
-    const path = [...this.path, '[]'];
-    return new ActionCommandObjectConfig(
-      this.context,
-      this.options,
-      listReducerScope(
-        this.scope,
-        ({data, payload}) => selector(data, payload),
-        path,
-        createActionReducerCoalesce(coalesce)
-      ),
-      path
-    );
   }
 
   /*  targetSubList(
@@ -277,6 +272,33 @@ class ActionCommandListConfig<TRoot, TState extends SimpleObject[], TPayload, TD
       this.context,
       this.options,
       (root, data, payload) => this.scope(root, {data, payload}, state => reducer(data, state, payload))
+    );
+  }
+
+}
+
+class ActionCommandListConfig<TRoot, TState extends SimpleObject[], TPayload, TData> extends ActionCommandArrayConfig<TRoot, TState, TPayload, TData> {
+
+  /**
+   * Target a list item in the list
+   * @param selector - The selector for the list item
+   * @param coalesce - A default value to append if item isn't found
+   */
+  targetItem(
+    selector: Conditional<ArrayType<TState>, Record<string, any>, ListSelector<TState, TPayload, TData>>,
+    coalesce?: ActionReducerCoalesce<TPayload, TData, ArrayType<TState>, TState>
+  ): ActionCommandObjectConfig<TRoot, ArrayType<TState>, TPayload, TData> {
+    const path = [...this.path, '[]'];
+    return new ActionCommandObjectConfig(
+      this.context,
+      this.options,
+      listReducerScope(
+        this.scope,
+        ({data, payload}) => selector(data, payload),
+        path,
+        createActionReducerCoalesce(coalesce)
+      ),
+      path
     );
   }
 

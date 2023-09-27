@@ -219,6 +219,24 @@ class CacheCommandObjectConfig<TRoot, TState extends Record<string, any>, TPaylo
   };
 
   /**
+   * Target a unit array property on the object
+   * @param key - The property name
+   * @param create - Add list if it doesn't exist
+   */
+  targetArray<TKey extends KeysOfTypeOrNull<TState, unknown[]>>(
+    key: TKey,
+    create = false
+  ): CacheCommandArrayConfig<TRoot, ValueOfKey<TState, TKey>, TPayload, TData> {
+    const path = [...this.path, key.toString()];
+    return new CacheCommandArrayConfig(
+      this.context,
+      this.options,
+      objectReducerScope(this.scope, key, path, create ? [] as TState[TKey] : undefined),
+      path
+    );
+  };
+
+  /**
    * Apply a modification to the payload / data before the reducer
    * @param func - The data modification
    */
@@ -254,38 +272,15 @@ class CacheCommandObjectConfig<TRoot, TState extends Record<string, any>, TPaylo
  * A config for building the Cache Command reducer
  * List scoped
  */
-class CacheCommandListConfig<TRoot, TState extends SimpleObject[], TPayload, TData> extends CacheCommandOptionConfig<TPayload, TData> {
+class CacheCommandArrayConfig<TRoot, TState extends unknown[], TPayload, TData> extends CacheCommandOptionConfig<TPayload, TData> {
 
   constructor(
-    private context: StoreServiceContext<TRoot>,
+    protected context: StoreServiceContext<TRoot>,
     options: CacheCommandOptions<TPayload, TData>,
-    private scope: ReducerScope<TRoot, TState, ActionReducerData<TPayload, TData>>,
-    private path: string[]
+    protected scope: ReducerScope<TRoot, TState, ActionReducerData<TPayload, TData>>,
+    protected path: string[]
   ) {
     super(options);
-  }
-
-  /**
-   * Target a list item in the list
-   * @param selector - The selector for the list item
-   * @param coalesce - A default value to append if item isn't found
-   */
-  targetItem(
-    selector: Conditional<ArrayType<TState>, Record<string, any>, ListSelector<TState, TPayload, TData>>,
-    coalesce?: ActionReducerCoalesce<TPayload, TData, ArrayType<TState>, TState>
-  ): CacheCommandObjectConfig<TRoot, ArrayType<TState>, TPayload, TData> {
-    const path = [...this.path, '[]'];
-    return new CacheCommandObjectConfig(
-      this.context,
-      this.options,
-      listReducerScope(
-        this.scope,
-        ({data, payload}) => selector(data, payload),
-        path,
-        createActionReducerCoalesce(coalesce)
-      ),
-      path
-    );
   }
 
   /**
@@ -311,6 +306,33 @@ class CacheCommandListConfig<TRoot, TState extends SimpleObject[], TPayload, TDa
       this.context,
       this.options,
       (root, data, payload) => this.scope(root, {data, payload}, state => reducer(data, state, payload))
+    );
+  }
+
+}
+
+class CacheCommandListConfig<TRoot, TState extends SimpleObject[], TPayload, TData> extends CacheCommandArrayConfig<TRoot, TState, TPayload, TData> {
+
+  /**
+   * Target a list item in the list
+   * @param selector - The selector for the list item
+   * @param coalesce - A default value to append if item isn't found
+   */
+  targetItem(
+    selector: Conditional<ArrayType<TState>, Record<string, any>, ListSelector<TState, TPayload, TData>>,
+    coalesce?: ActionReducerCoalesce<TPayload, TData, ArrayType<TState>, TState>
+  ): CacheCommandObjectConfig<TRoot, ArrayType<TState>, TPayload, TData> {
+    const path = [...this.path, '[]'];
+    return new CacheCommandObjectConfig(
+      this.context,
+      this.options,
+      listReducerScope(
+        this.scope,
+        ({data, payload}) => selector(data, payload),
+        path,
+        createActionReducerCoalesce(coalesce)
+      ),
+      path
     );
   }
 

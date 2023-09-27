@@ -102,6 +102,24 @@ export class DeferredCommandObjectConfig<TRoot, TState extends Record<string, an
   };
 
   /**
+   * Target a unit array property on the object
+   * @param key - The property name
+   * @param create - Add list if it doesn't exist
+   */
+  targetArray<TKey extends KeysOfTypeOrNull<TState, unknown[]>>(
+    key: TKey,
+    create = false
+  ): DeferredCommandArrayConfig<TRoot, ValueOfKey<TState, TKey>, TPayload, TData> {
+    const path = [...this.path, key.toString()];
+    return new DeferredCommandArrayConfig(
+      this.context,
+      this.options,
+      objectReducerScope(this.scope, key, path, create ? [] as TState[TKey] : undefined),
+      path
+    );
+  };
+
+  /**
    * Apply a modification to the payload before the reducer
    * @param func - The data modification
    */
@@ -130,33 +148,15 @@ export class DeferredCommandObjectConfig<TRoot, TState extends Record<string, an
  * A config for building the Deferred Command reducer
  * List scoped
  */
-class DeferredCommandListConfig<TRoot, TState extends SimpleObject[], TPayload, TData> extends DeferredCommandOptionConfig<TPayload, TData> {
+class DeferredCommandArrayConfig<TRoot, TState extends unknown[], TPayload, TData> extends DeferredCommandOptionConfig<TPayload, TData> {
 
   constructor(
-    private context: StoreServiceContext<TRoot>,
+    protected context: StoreServiceContext<TRoot>,
     options: DeferredCommandOptions<TPayload, TData>,
-    private scope: ReducerScope<TRoot, TState, TPayload>,
-    private path: string[]
+    protected scope: ReducerScope<TRoot, TState, TPayload>,
+    protected path: string[]
   ) {
     super(options);
-  }
-
-  /**
-   * Target a list item in the list
-   * @param selector - The selector for the list item
-   * @param coalesce - A default value to append if item isn't found
-   */
-  targetItem(
-    selector: Conditional<ArrayType<TState>, Record<string, any>, ListSelector<TState, TPayload, TPayload>>,
-    coalesce?: ReducerCoalesce<TPayload, ArrayType<TState>, TState>
-  ): DeferredCommandObjectConfig<TRoot, ArrayType<TState>, TPayload, TData> {
-    const path = [...this.path, '[]'];
-    return new DeferredCommandObjectConfig(
-      this.context,
-      this.options,
-      listReducerScope(this.scope, (payload) => selector(payload, payload), path, coalesce),
-      path
-    );
   }
 
   /**
@@ -178,6 +178,28 @@ class DeferredCommandListConfig<TRoot, TState extends SimpleObject[], TPayload, 
       (root, data) => this.scope(root, data, state => reducer(data, state))
     );
   }
+}
+
+class DeferredCommandListConfig<TRoot, TState extends SimpleObject[], TPayload, TData> extends DeferredCommandArrayConfig<TRoot, TState, TPayload, TData> {
+
+  /**
+   * Target a list item in the list
+   * @param selector - The selector for the list item
+   * @param coalesce - A default value to append if item isn't found
+   */
+  targetItem(
+    selector: Conditional<ArrayType<TState>, Record<string, any>, ListSelector<TState, TPayload, TPayload>>,
+    coalesce?: ReducerCoalesce<TPayload, ArrayType<TState>, TState>
+  ): DeferredCommandObjectConfig<TRoot, ArrayType<TState>, TPayload, TData> {
+    const path = [...this.path, '[]'];
+    return new DeferredCommandObjectConfig(
+      this.context,
+      this.options,
+      listReducerScope(this.scope, (payload) => selector(payload, payload), path, coalesce),
+      path
+    );
+  }
+
 }
 
 /**
