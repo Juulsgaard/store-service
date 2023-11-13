@@ -1,4 +1,6 @@
-import {distinctUntilChanged, EMPTY, from, merge, Observable, Subject, Subscription, switchMap, tap} from "rxjs";
+import {
+  concatWith, distinctUntilChanged, EMPTY, first, from, mergeWith, Observable, of, Subject, Subscription, switchMap, tap
+} from "rxjs";
 import {catchError, concatMap, map, pairwise} from "rxjs/operators";
 import {arrToMap} from "@juulsgaard/ts-tools";
 import {CacheChunkContext} from "./caching-interface";
@@ -16,11 +18,7 @@ interface Changes<TChunk> {
 export class CacheChunk<TChunk> {
 
   private ignoreValueChange = new Set<string>();
-
-  private stateChanges$ = new Subject<Changes<TChunk>>();
   private manualChanges$ = new Subject<Changes<TChunk>>();
-  private changeSub?: Subscription;
-  private mainSub: Subscription;
 
   constructor(
     private chunks$: Observable<Observable<TChunk[]>>,
@@ -28,54 +26,69 @@ export class CacheChunk<TChunk> {
     private getId: (chunk: TChunk) => string,
     private getTags?: (chunk: TChunk) => string[]
   ) {
-    this.mainSub = this.chunks$.pipe(
-      // Reset every time a new state observable is emitted
-      tap(() => this.reset()),
-      switchMap(state$ => state$.pipe(
-        distinctUntilChanged(),
-        // Split the chunks based on ID
-        map(x => arrToMap(x, getId)),
-        // Get 2 consecutive states at a time
-        pairwise(),
-        // Find changes between the 2 states
-        map(([oldMap, newMap]) => this.mapChanges(oldMap, newMap)),
-        // Ignore errors
-        catchError(e => {
-          console.error('An error occurred computing changes in cache chunks', e);
-          return EMPTY;
-        })
-      ))
-    ).subscribe(this.stateChanges$);
-
-    // Cancel chunk if database isn't available
-    this.context.isAvailable().then(
-      available => !available && this.cancel(),
-      () => this.cancel()
-    );
+    this.chunks$.subscribe({
+      next: values$ => this.setup(values$),
+      complete: () => this.dispose()
+    });
   }
 
-  /** Shut down chunk if database is not available */
-  private cancel() {
-    this.mainSub.unsubscribe();
-    this.changeSub?.unsubscribe();
-    this.stateChanges$.complete();
-    this.manualChanges$.complete();
-  }
+  scopedSub?: Subscription;
 
-  private reset() {
+  private setup(values$: Observable<TChunk[]>) {
     this.ignoreValueChange.clear();
     this.context.reset();
 
-    this.changeSub?.unsubscribe();
-    this.changeSub = merge(this.stateChanges$, this.manualChanges$).pipe(
-      // Save the changes to cache
-      concatMap(x => from(this.applyChanges(x))),
-      // Ignore errors
-      catchError(e => {
-        console.error('An error occurred applying changes to cache', e);
-        return EMPTY;
-      })
-    ).subscribe()
+    this.scopedSub?.unsubscribe();
+    this.scopedSub = new Subscription();
+
+    // Capture the first value
+    let firstVal$: Observable<TChunk[]> = EMPTY;
+    this.scopedSub.add(
+      values$.pipe(
+        first()
+      ).subscribe(x => firstVal$ = of(x))
+    );
+
+
+    const queue$ = this.context.available$.pipe(
+      switchMap(available => !available ? EMPTY :
+        firstVal$.pipe(
+          concatWith(values$),
+          distinctUntilChanged(),
+          // Save the latest value for resuming
+          tap(x => firstVal$ = of(x)),
+          // Split the chunks based on ID
+          map(x => arrToMap(x, this.getId)),
+          // Get 2 consecutive states at a time
+          pairwise(),
+          // Find changes between the 2 states
+          map(([oldMap, newMap]) => this.mapChanges(oldMap, newMap)),
+          // Ignore errors
+          catchError(e => {
+            console.error('An error occurred computing changes in cache chunks', e);
+            return EMPTY;
+          }),
+          // Include manual changes
+          mergeWith(this.manualChanges$),
+          // Save the changes to cache
+          concatMap(x => from(this.applyChanges(x))),
+          // Ignore errors
+          catchError(e => {
+            console.error('An error occurred applying changes to cache', e);
+            return EMPTY;
+          })
+        )
+      )
+    );
+
+    this.scopedSub.add(queue$.subscribe());
+  }
+
+  private dispose() {
+    this.context.reset();
+
+    this.scopedSub?.unsubscribe();
+    this.manualChanges$.complete();
   }
 
   private mapChanges(oldMap: Map<string, TChunk>, newMap: Map<string, TChunk>): Changes<TChunk> {

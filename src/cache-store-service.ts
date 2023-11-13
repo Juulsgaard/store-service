@@ -27,10 +27,17 @@ export abstract class CacheStoreService<TState extends SimpleObject> extends Sto
   }
 
   override reset() {
+    if (this.disposed) throw Error('The store has been disposed');
+
     // Emit a new state start starts with the next state value
     // That value will be the default for the state, since super.reset() emits default
     this.states$.next(this.state$.pipe(skip(1)));
     super.reset();
+  }
+
+  override dispose() {
+    super.dispose();
+    this.states$.complete();
   }
 
   protected cache(chunkId: string, version: number): CacheConfig<TState> {

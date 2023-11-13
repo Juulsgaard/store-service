@@ -7,7 +7,7 @@ import {
 import {Reducer} from "./models/store-types";
 import {IStoreConfigService} from "./models/store-config-service";
 import {map} from "rxjs/operators";
-import {arrToMap, deepCopy, deepFreeze, titleCase} from "@juulsgaard/ts-tools";
+import {arrToMap, deepCopy, deepFreeze, Disposable, titleCase} from "@juulsgaard/ts-tools";
 import {QueueAction} from "./models/queue-action";
 import {BaseCommand, StoreCommand} from "./models/base-commands";
 import {cache} from "@juulsgaard/rxjs-tools";
@@ -15,7 +15,7 @@ import {cache} from "@juulsgaard/rxjs-tools";
 /**
  * A service managing the store state
  */
-export abstract class StoreService<TState extends Record<string, any>> {
+export abstract class StoreService<TState extends Record<string, any>> implements Disposable {
 
   /**
    * Get the context object from a store.
@@ -139,14 +139,13 @@ export abstract class StoreService<TState extends Record<string, any>> {
     }
   }
 
-
-
   //<editor-fold desc="Queue Logic">
   /**
    * Clear and set up the Reducer queue
    * @private
    */
   private startQueue() {
+    if (this.disposed) throw Error('The store has been disposed');
     this.queueSub?.unsubscribe();
     this.reducerQueue$ = new Subject();
 
@@ -396,6 +395,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
    * Reset the entire store
    */
   reset() {
+    if (this.disposed) throw Error('The store has been disposed');
 
     //Restart the queue
     this.startQueue();
@@ -403,6 +403,21 @@ export abstract class StoreService<TState extends Record<string, any>> {
     this._state$.next(this.freeze(deepCopy(this.initialState)));
     this.loadStates.forEach(x => x.next(undefined));
     this.requestLoadStates.forEach(cmd => cmd.forEach(x => x.next(undefined)));
+  }
+
+  private _disposed$ = new BehaviorSubject(false);
+  readonly disposed$ = this._disposed$.asObservable();
+  get disposed() {return this._disposed$.value}
+
+  /**
+   * Dispose Store
+   */
+  dispose() {
+    if (this.disposed) return;
+    this._disposed$.next(true);
+    this._disposed$.complete();
+    this.queueSub?.unsubscribe();
+    this._state$.complete();
   }
 
 

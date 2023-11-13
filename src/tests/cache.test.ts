@@ -77,9 +77,10 @@ class TestService extends CacheStoreService<State> {
     .noFallback();
 }
 
-const store = new TestService();
 
 test('Cache', async () => {
+
+  const store = new TestService();
 
   store.add.emit({id: 'first', value: 'Test'});
   store.add.emit({id: 'second', value: 'Hello'});
@@ -103,9 +104,13 @@ test('Cache', async () => {
 
   const updated = await store.cached.readItem('second');
   expect(updated?.data.value).toEqual('NewVal');
+
+  store.dispose();
 })
 
 test('Load', async () => {
+
+  const store = new TestService();
 
   store.add.emit({id: 'first', value: 'Test'});
   store.add.emit({id: 'second', value: 'Hello'});
@@ -117,4 +122,6 @@ test('Load', async () => {
   await store.load.emitAsync();
 
   expect(store.state.values.length).toEqual(2);
+
+  store.dispose();
 })

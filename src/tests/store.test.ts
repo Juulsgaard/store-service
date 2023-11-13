@@ -35,12 +35,14 @@ class TestService extends StoreService<State> {
     .withReducer(str => ({temp: str}));
 }
 
-const store = new TestService();
-
 test('Store', () => {
+  const store = new TestService();
+
   expect(store.state).toStrictEqual({temp: ''});
   store.action.observe('Test');
   expect(store.state).toStrictEqual({temp: 'Test'});
   store.action.observe('Hello');
   expect(store.state).toStrictEqual({temp: 'Hello'});
+
+  store.dispose();
 })

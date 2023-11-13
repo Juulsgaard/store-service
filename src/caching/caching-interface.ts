@@ -1,6 +1,9 @@
 import {CacheAdapter, CacheItemData, CacheTransactionAdapter} from "./caching-adapter";
-import {concatMap, EMPTY, from, Observable, of, Subject, Subscription, switchMap, tap} from "rxjs";
+import {
+  BehaviorSubject, concatMap, distinctUntilChanged, EMPTY, from, Observable, of, Subject, Subscription, switchMap, tap
+} from "rxjs";
 import {map} from "rxjs/operators";
+import {cache} from "@juulsgaard/rxjs-tools";
 
 export class CacheDatabaseContext {
 
@@ -13,8 +16,9 @@ export class CacheDatabaseContext {
   private _error?: string;
   get error() {return this._error ?? `Can't access IndexedDB`}
 
-  private _enabled = true;
-  get enabled() {return this._enabled}
+  private _enabled$ = new BehaviorSubject(true);
+  readonly enabled$ = this._enabled$.asObservable();
+  get enabled() {return this._enabled$.value}
 
   constructor(private adapter: CacheAdapter, private databaseId: string) {
     this.setupQueue();
@@ -26,22 +30,36 @@ export class CacheDatabaseContext {
 
   /** Enable the database for use */
   enable() {
-    this._enabled = true;
+    if (this.enabled) return;
+    this._enabled$.next(true);
   }
 
   /** Disable the database */
   disable() {
-    this._enabled = false;
+    if (!this.enabled) return;
+    this._enabled$.next(false);
   }
 
+  available$ = this._enabled$.pipe(
+    switchMap(enabled => enabled ? from(this._isAvailable()) : of(false)),
+    distinctUntilChanged(),
+    cache()
+  );
+
   async isAvailable() {
-    if (!this._enabled) return false;
+    if (!this.enabled) return false;
+    return await this._isAvailable();
+  }
+
+  private async _isAvailable() {
     if (this._available != null) return await this._available;
+
     this._available = this.adapter.isAvailable(err => this._error = err);
     this._available.then(available => {
       if (available) return;
       console.warn(`Database "${this.databaseId}" is not available`, this.error)
     });
+
     return await this._available;
   }
 
@@ -60,7 +78,7 @@ export class CacheDatabaseContext {
   }
 
   async init(): Promise<void> {
-    if (!this._enabled) throw Error("The database is currently disabled");
+    if (!this.enabled) throw Error("The database is currently disabled");
     if (this.initialising) return await this.initialising;
     this.initialising = this._init();
     return await this.initialising;
@@ -158,9 +176,10 @@ export class CacheChunkContext<TChunk> {
 
   private initialising?: Promise<void>;
   private transactionTriggers = new Set<Subject<void>>();
+  available$: Observable<boolean>;
 
   constructor(private adapter: CacheAdapter, private databaseId: string, private chunkId: string, private version: number, private database: CacheDatabaseContext) {
-
+    this.available$ = this.database.available$;
   }
 
   async isAvailable() {
