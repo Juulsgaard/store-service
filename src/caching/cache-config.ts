@@ -1,4 +1,4 @@
-import {Observable} from "rxjs";
+import {distinctUntilChanged, Observable} from "rxjs";
 import {map} from "rxjs/operators";
 import {CacheChunkContext, CacheDatabaseContext} from "./caching-interface";
 import {CacheChunk} from "./cache-chunk";
@@ -9,12 +9,16 @@ export class CacheConfig<TState> {
   constructor(private chunkId: string, private version: number, private databaseContext: CacheDatabaseContext, private states$: Observable<Observable<TState>>) {
   }
 
-  withChunks<TChunk>(chunk: (state: TState) => TChunk[]): CacheChunkConfig<TChunk> {
+  /**
+   * Track cache as multiple units with an ID
+   * @param chunks - The mapping for the cache chunks
+   */
+  withChunks<TChunk>(chunks: (state: TState) => TChunk[]): CacheChunkConfig<TChunk> {
     const context = this.databaseContext.getChunk<TChunk>(this.chunkId, this.version);
 
     const chunks$ = this.states$.pipe(
       map(state$ => state$.pipe(
-        map(chunk),
+        map(chunks),
         persistentCache(5000)
       ))
     );
@@ -22,21 +26,46 @@ export class CacheConfig<TState> {
     return new CacheChunkConfig<TChunk>(context, chunks$);
   }
 
-  singleChunk<TChunk>(chunk: (state: TState) => TChunk): CacheChunk<TChunk> {
+  /**
+   * Track cache as multiple units with an ID.
+   * Uses a scope to limit the state changes that trigger a cache re-evaluation.
+   * @param scope - The change detection scope for the cache
+   * @param chunks - The mapping for the cache chunks
+   */
+  withScopedChunks<TScope, TChunk>(scope: (state: TState) => TScope, chunks: (state: TScope) => TChunk[]): CacheChunkConfig<TChunk> {
     const context = this.databaseContext.getChunk<TChunk>(this.chunkId, this.version);
 
     const chunks$ = this.states$.pipe(
       map(state$ => state$.pipe(
-        map(x => {
-          const globalChunk = chunk(x);
-          if (globalChunk) return [globalChunk];
-          return [];
-        }),
+        map(scope),
+        distinctUntilChanged(),
+        map(chunks),
         persistentCache(5000)
       ))
     );
 
-    return new CacheChunk<TChunk>(chunks$, context, () => 'global');
+    return new CacheChunkConfig<TChunk>(context, chunks$);
+  }
+
+  /**
+   * Track cache as single object
+   * @param chunk - Mapping for the cache value
+   * @param getId - Optionally give the value an ID - Will default to use a 'global' ID
+   */
+  singleChunk<TChunk>(chunk: (state: TState) => TChunk, getId?: (value: TChunk) => string): CacheChunk<TChunk> {
+    getId ??= () => 'global';
+    const context = this.databaseContext.getChunk<TChunk>(this.chunkId, this.version);
+
+    const chunks$ = this.states$.pipe(
+      map(state$ => state$.pipe(
+        map(chunk),
+        distinctUntilChanged(),
+        map(x => x ? [x] : []),
+        persistentCache(5000)
+      ))
+    );
+
+    return new CacheChunk<TChunk>(chunks$, context, getId);
   }
 }
 
