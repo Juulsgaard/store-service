@@ -52,20 +52,20 @@ export class CacheConfig<TState> {
    * @param chunk - Mapping for the cache value
    * @param getId - Optionally give the value an ID - Will default to use a 'global' ID
    */
-  singleChunk<TChunk>(chunk: (state: TState) => TChunk, getId?: (value: TChunk) => string): CacheChunk<TChunk> {
+  singleChunk<TChunk>(chunk: (state: TState) => TChunk, getId?: (value: NonNullable<TChunk>) => string): CacheChunk<NonNullable<TChunk>> {
     getId ??= () => 'global';
-    const context = this.databaseContext.getChunk<TChunk>(this.chunkId, this.version);
+    const context = this.databaseContext.getChunk<NonNullable<TChunk>>(this.chunkId, this.version);
 
     const chunks$ = this.states$.pipe(
       map(state$ => state$.pipe(
         map(chunk),
         distinctUntilChanged(),
-        map(x => x ? [x] : []),
+        map(x => x != null ? [x] : []),
         persistentCache(5000)
       ))
     );
 
-    return new CacheChunk<TChunk>(chunks$, context, getId);
+    return new CacheChunk<NonNullable<TChunk>>(chunks$, context, getId);
   }
 }
 
