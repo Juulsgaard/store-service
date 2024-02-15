@@ -77,13 +77,13 @@ export abstract class StoreService<TState extends Record<string, any>> implement
    * The current failure state of all commands
    * @private
    */
-  private failStates = new Map<StoreCommand<TState>, BehaviorSubject<boolean>>();
+  private errorStates = new Map<StoreCommand<TState>, BehaviorSubject<Error|undefined>>();
 
   /**
    * The current failure state of all commands grouped on RequestId
    * @private
    */
-  private requestFailStates = new Map<StoreCommand<TState>, Map<string, BehaviorSubject<boolean>>>();
+  private requestErrorStates = new Map<StoreCommand<TState>, Map<string, BehaviorSubject<Error|undefined>>>();
   //</editor-fold>
 
   /**
@@ -112,26 +112,27 @@ export abstract class StoreService<TState extends Record<string, any>> implement
     this.context = {
       getCommandName: cmd => this.getCommandName(cmd),
       applyCommand: reducer$ => this.reducerQueue$.next(reducer$),
-      getLoadState: (cmd: StoreCommand<TState>, requestId?: string) => this.getLoadState$(cmd, requestId).value,
-      getLoadState$: (cmd: StoreCommand<TState>, requestId?: string) => this.getLoadState$(cmd, requestId).asObservable(),
-      getFailureState$: (cmd: StoreCommand<TState>, requestId?: string) => this.getFailureState$(cmd, requestId).asObservable(),
+      getLoadState: (cmd: StoreCommand<TState>, requestId: string|undefined) => this.getLoadState$(cmd, requestId).value,
+      getLoadState$: (cmd: StoreCommand<TState>, requestId: string|undefined) => this.getLoadState$(cmd, requestId).asObservable(),
+      getErrorState$: (cmd: StoreCommand<TState>, requestId: string|undefined) => this.getErrorState$(cmd, requestId).asObservable(),
+      getFailureState$: (cmd: StoreCommand<TState>, requestId: string|undefined) => this.getFailureState$(cmd, requestId),
       displayError: this.configService.displayError.bind(this.configService),
       displaySuccess: this.configService.displaySuccess.bind(this.configService),
       logActionRetry: this.configService.logActionRetry.bind(this.configService),
-      startLoad: (cmd: StoreCommand<TState>, requestId?: string) => {
-        this.startLoad(cmd);
+      startLoad: (cmd: StoreCommand<TState>, requestId: string|undefined) => {
+        this.startLoad(cmd, undefined);
         if (requestId) this.startLoad(cmd, requestId)
       },
-      endLoad: (cmd: StoreCommand<TState>, requestId?: string) => {
-        this.endLoad(cmd);
+      endLoad: (cmd: StoreCommand<TState>, requestId: string|undefined) => {
+        this.endLoad(cmd, undefined);
         if (requestId) this.endLoad(cmd, requestId)
       },
-      failLoad: (cmd: StoreCommand<TState>, requestId?: string) => {
-        this.failLoad(cmd);
-        if (requestId) this.failLoad(cmd, requestId)
+      failLoad: (cmd: StoreCommand<TState>, error: Error, requestId: string) => {
+        this.failLoad(cmd, error, undefined);
+        if (requestId) this.failLoad(cmd, error, requestId)
       },
-      resetFailState: (cmd: StoreCommand<TState>, requestId?: string) => {
-        this.resetFailState(cmd);
+      resetFailState: (cmd: StoreCommand<TState>, requestId: string|undefined) => {
+        this.resetFailState(cmd, undefined);
         if (requestId) this.resetFailState(cmd, requestId)
       },
       isProduction: this.configService.isProduction,
@@ -245,7 +246,7 @@ export abstract class StoreService<TState extends Record<string, any>> implement
    * @param requestId - An optional RequestId
    * @private
    */
-  private getLoadState$(cmd: StoreCommand<TState>, requestId?: string) {
+  private getLoadState$(cmd: StoreCommand<TState>, requestId: string|undefined) {
     if (!requestId) {
       let sub = this.loadStates.get(cmd);
       if (sub) return sub;
@@ -277,28 +278,32 @@ export abstract class StoreService<TState extends Record<string, any>> implement
    * @param requestId - An optional RequestId
    * @private
    */
-  private getFailureState$(cmd: StoreCommand<TState>, requestId?: string) {
+  private getErrorState$(cmd: StoreCommand<TState>, requestId: string|undefined) {
     if (!requestId) {
-      let sub = this.failStates.get(cmd);
+      let sub = this.errorStates.get(cmd);
       if (sub) return sub;
 
-      sub = new BehaviorSubject(false);
-      this.failStates.set(cmd, sub);
+      sub = new BehaviorSubject<Error|undefined>(undefined);
+      this.errorStates.set(cmd, sub);
       return sub;
     }
 
-    let map = this.requestFailStates.get(cmd);
+    let map = this.requestErrorStates.get(cmd);
     if (!map) {
       map = new Map();
-      this.requestFailStates.set(cmd, map);
+      this.requestErrorStates.set(cmd, map);
     }
 
     let sub = map.get(requestId);
     if (sub) return sub;
 
-    sub = new BehaviorSubject(false);
+    sub = new BehaviorSubject<Error|undefined>(undefined);
     map.set(requestId, sub);
     return sub;
+  }
+
+  private getFailureState$(cmd: StoreCommand<TState>, requestId: string|undefined) {
+    return this.getErrorState$(cmd, requestId).pipe(map(x => x != null));
   }
 
   /**
@@ -307,12 +312,12 @@ export abstract class StoreService<TState extends Record<string, any>> implement
    * @param requestId - An optional RequestId
    * @private
    */
-  private getFailureStateOrDefault$(cmd: StoreCommand<TState>, requestId?: string) {
+  private getFailureStateOrDefault$(cmd: StoreCommand<TState>, requestId: string|undefined) {
     if (!requestId) {
-      return this.failStates.get(cmd);
+      return this.errorStates.get(cmd);
     }
 
-    return this.requestFailStates.get(cmd)?.get(requestId);
+    return this.requestErrorStates.get(cmd)?.get(requestId);
   }
   //</editor-fold>
 
@@ -323,7 +328,7 @@ export abstract class StoreService<TState extends Record<string, any>> implement
    * @param requestId
    * @private
    */
-  private startLoad(cmd: StoreCommand<TState>, requestId?: string) {
+  private startLoad(cmd: StoreCommand<TState>, requestId: string|undefined) {
     const sub = this.getLoadState$(cmd, requestId);
     sub.next((sub.value ?? 0) + 1);
 
@@ -337,7 +342,7 @@ export abstract class StoreService<TState extends Record<string, any>> implement
    * @param requestId
    * @private
    */
-  private endLoad(cmd: StoreCommand<TState>, requestId?: string) {
+  private endLoad(cmd: StoreCommand<TState>, requestId: string|undefined) {
     const sub = this.getLoadState$(cmd, requestId);
     sub.next((sub.value ?? 1) - 1);
 
@@ -348,11 +353,13 @@ export abstract class StoreService<TState extends Record<string, any>> implement
   /**
    * Mark a command as having finished loading with an error
    * @param cmd - The command
+   * @param error
    * @param requestId
    * @private
    */
-  private failLoad(cmd: StoreCommand<TState>, requestId?: string) {
-    this.getFailureState$(cmd, requestId).next(true);
+  private failLoad(cmd: StoreCommand<TState>, error: Error, requestId: string|undefined) {
+
+    this.getErrorState$(cmd, requestId).next(error);
 
     const sub = this.getLoadState$(cmd, requestId);
     const val = sub.value ?? 1;
@@ -366,8 +373,8 @@ export abstract class StoreService<TState extends Record<string, any>> implement
     sub.next(val - 1);
   }
 
-  private resetFailState(cmd: StoreCommand<TState>, requestId?: string) {
-    this.getFailureStateOrDefault$(cmd, requestId)?.next(false);
+  private resetFailState(cmd: StoreCommand<TState>, requestId: string|undefined) {
+    this.getFailureStateOrDefault$(cmd, requestId)?.next(undefined);
   }
   //</editor-fold>
 

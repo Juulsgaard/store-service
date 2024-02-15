@@ -60,7 +60,7 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
       return this.context.getLoadState(this, this.getRequestId(payload)) !== undefined
     }
 
-    return this.context.getLoadState(this) !== undefined;
+    return this.context.getLoadState(this, undefined) !== undefined;
   }
 
   cancelConcurrent(payload: TPayload): boolean {
@@ -70,7 +70,7 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
       return (this.context.getLoadState(this, this.getRequestId(payload)) ?? 0) > 0;
     }
 
-    return (this.context.getLoadState(this) ?? 0) > 0;
+    return (this.context.getLoadState(this, undefined) ?? 0) > 0;
   }
 
   /**
@@ -151,7 +151,7 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
         // Use timeout to ensure effect runs after reducer
         setTimeout(() => this.options.afterEffect?.(data, payload));
       })
-      .catch(() => this.context.failLoad(this, requestId))
+      .catch(e => this.context.failLoad(this, e, requestId))
 
     return loadState;
   };

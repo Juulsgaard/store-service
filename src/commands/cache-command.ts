@@ -113,6 +113,13 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
     )
   }
 
+  cacheErrorById$(payload: TPayload) {
+    if (!this.getRequestId) return this.error$;
+    return this.context.getErrorState$(this, this.getRequestId(payload)).pipe(
+      distinctUntilChanged()
+    )
+  }
+
   //</editor-fold>
 
   //<editor-fold desc="Combined Request Loading State">
@@ -153,6 +160,18 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
     );
   }
 
+  errorById$(payload: TPayload & TXPayload): Observable<Error|undefined>;
+  errorById$(cachePayload: TPayload, commandPayload: TXPayload): Observable<Error|undefined>;
+  errorById$(cachePayload: TPayload | (TPayload & TXPayload), commandPayload?: TXPayload): Observable<Error|undefined> {
+    if (!this.getRequestId) return this.error$;
+    if (!this.fallbackCommand || !('errorById$' in this.fallbackCommand)) return this.cacheErrorById$(cachePayload);
+    const cmdPayload = commandPayload ?? cachePayload as TXPayload;
+    return combineLatest([this.cacheErrorById$(cachePayload), this.fallbackCommand.errorById$(cmdPayload)]).pipe(
+      map(([x, y]) => x ?? y),
+      distinctUntilChanged()
+    );
+  }
+
   //</editor-fold>
 
   private valueIsValid(data: TData | undefined): data is TData {
@@ -166,7 +185,7 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
       return this.context.getLoadState(this, this.getRequestId(payload)) !== undefined
     }
 
-    return this.context.getLoadState(this) !== undefined;
+    return this.context.getLoadState(this, undefined) !== undefined;
   }
 
   cancelConcurrent(payload: TPayload): boolean {
@@ -176,7 +195,7 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
       return (this.context.getLoadState(this, this.getRequestId(payload)) ?? 0) > 0;
     }
 
-    return (this.context.getLoadState(this) ?? 0) > 0;
+    return (this.context.getLoadState(this, undefined) ?? 0) > 0;
   }
 
   /**
@@ -262,8 +281,9 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
         emitFallback();
         this.context.endLoad(this, requestId)
       } else {
-        sharedState.error(new CacheCommandError('Cache disabled online, but missing fallback', cachePayload));
-        this.context.failLoad(this, requestId)
+        const error = new CacheCommandError('Cache disabled online, but missing fallback', cachePayload);
+        sharedState.error(error);
+        this.context.failLoad(this, error, requestId)
       }
       return sharedLoadingState;
     }
@@ -378,14 +398,15 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
           // If invalid, emit the fallback
           else emitFallback();
 
-        } catch (error: any) {
+        } catch (e: unknown) {
           // Handle fail states
-          this.context.failLoad(this, requestId);
+          const error = e instanceof Error ? e : Error();
+          this.context.failLoad(this, error, requestId);
           sharedState.error(error);
         }
       })
       .catch(err => {
-        this.context.failLoad(this, requestId);
+        this.context.failLoad(this, err, requestId);
         sharedState.error(err);
       });
     //</editor-fold>

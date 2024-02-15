@@ -28,6 +28,10 @@ export abstract class StoreCommand<TState> extends BaseCommand {
    * Indicates if any command of this type has recently failed
    */
   failed$: Observable<boolean>;
+  /**
+   * Provides the error from the most recently failed request when in an error state
+   */
+  error$: Observable<Error|undefined>;
 
   protected context: StoreServiceContext<TState>
 
@@ -36,15 +40,21 @@ export abstract class StoreCommand<TState> extends BaseCommand {
 
     this.context = context;
 
-    this.loading$ = context.getLoadState$(this).pipe(
+    this.loading$ = context.getLoadState$(this, undefined).pipe(
       map(x => !!x && x > 0),
       distinctUntilChanged()
     );
-    this.loaded$ = context.getLoadState$(this).pipe(
+
+    this.loaded$ = context.getLoadState$(this, undefined).pipe(
       map(x => x !== undefined),
       distinctUntilChanged()
     );
-    this.failed$ = context.getFailureState$(this).pipe(
+
+    this.failed$ = context.getFailureState$(this, undefined).pipe(
+      distinctUntilChanged()
+    );
+
+    this.error$ = context.getErrorState$(this, undefined).pipe(
       distinctUntilChanged()
     );
   }
@@ -61,7 +71,7 @@ export abstract class StoreCommand<TState> extends BaseCommand {
    * @internal
    */
   resetFailState() {
-    this.context.resetFailState(this);
+    this.context.resetFailState(this, undefined);
   }
 
 }
@@ -94,6 +104,13 @@ export abstract class PayloadCommand<TState, TPayload> extends StoreCommand<TSta
   failedById$(payload: TPayload) {
     if (!this.getRequestId) return this.failed$;
     return this.context.getFailureState$(this, this.getRequestId(payload)).pipe(
+      distinctUntilChanged()
+    )
+  }
+
+  errorById$(payload: TPayload) {
+    if (!this.getRequestId) return this.error$;
+    return this.context.getErrorState$(this, this.getRequestId(payload)).pipe(
       distinctUntilChanged()
     )
   }

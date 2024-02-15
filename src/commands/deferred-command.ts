@@ -44,7 +44,7 @@ export class DeferredCommand<TState, TPayload, TData>  extends StoreCommand<TSta
    */
   observe(payload: TPayload): LoadingState<TData> {
 
-    this.context.startLoad(this);
+    this.context.startLoad(this, undefined);
 
     // Set up a delayed loading state
     const state = Loading.Delayed(() => this.options.action(payload))
@@ -77,11 +77,11 @@ export class DeferredCommand<TState, TPayload, TData>  extends StoreCommand<TSta
 
     state
       .then(data => {
-        this.context.endLoad(this);
+        this.context.endLoad(this, undefined);
         // Use timeout to ensure effect runs after reducer
         setTimeout(() => this.options.afterEffect?.(data, payload));
       })
-      .catch(() => this.context.failLoad(this));
+      .catch(e => this.context.failLoad(this, e, undefined));
 
     return state;
   };

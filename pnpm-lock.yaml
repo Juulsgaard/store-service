@@ -1,7 +1,7 @@
 lockfileVersion: 5.4
 
 specifiers:
-  '@juulsgaard/rxjs-tools': 1.5.0
+  '@juulsgaard/rxjs-tools': 1.5.1
   '@juulsgaard/ts-tools': 1.5.1
   '@types/jest': ^29.5.12
   cross-env: ^7.0.3
@@ -14,7 +14,7 @@ specifiers:
   typescript: ~5.3.3
 
 devDependencies:
-  '@juulsgaard/rxjs-tools': 1.5.0_ybfv4qtdnzemr7qkftosdj6wxu
+  '@juulsgaard/rxjs-tools': 1.5.1_ybfv4qtdnzemr7qkftosdj6wxu
   '@juulsgaard/ts-tools': 1.5.1_typescript@5.3.3
   '@types/jest': 29.5.12
   cross-env: 7.0.3
@@ -650,8 +650,8 @@ packages:
       '@jridgewell/sourcemap-codec': 1.4.15
     dev: true
 
-  /@juulsgaard/rxjs-tools/1.5.0_ybfv4qtdnzemr7qkftosdj6wxu:
-    resolution: {integrity: sha512-cMJ5FnsYqftVBQkgpi/d5m+B445TMEXIAnb8+2JldU5GkH2h3t6LCw91WgPNtLWru3Or7b5ajZU4L7NBfwzi5Q==}
+  /@juulsgaard/rxjs-tools/1.5.1_ybfv4qtdnzemr7qkftosdj6wxu:
+    resolution: {integrity: sha512-JOc+A4V/Nbh2kS68zteGkS6XXPHJLIIY2fCErZQ0v6It2bnU9/8v4YK5yoq2BbDXOOQpKXzJ3UnSNsh1ppBG3A==}
     peerDependencies:
       '@juulsgaard/ts-tools': ^1.5.1
       rxjs: ^7.8.1
