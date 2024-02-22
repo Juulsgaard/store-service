@@ -105,7 +105,7 @@ export abstract class StoreService<TState extends Record<string, any>> implement
     this.state$ = this._state$.pipe(
       cache()
     );
-    this.storeName = titleCase(this.constructor.name);
+    this.storeName = titleCase(this.constructor.name.replace(/(^[_\W+]|[_\W]$)/g, ''));
 
     this.startQueue();
 
