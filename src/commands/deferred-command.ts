@@ -3,7 +3,7 @@ import {EMPTY, startWith, switchMap, tap} from "rxjs";
 import {CommandAction, Reducer} from "../models/store-types";
 import {StoreServiceContext} from "../configs/command-config";
 import {QueueAction} from "../models/queue-action";
-import {StoreCommand} from "../models/base-commands";
+import {AsyncPayloadCommand} from "../models/base-commands";
 import {Loading, LoadingState} from '@juulsgaard/rxjs-tools';
 
 /**
@@ -24,7 +24,7 @@ export interface DeferredCommandOptions<TPayload, TData> {
  * If the action fails, the command will roll back the store
  * This command type will lock the store using a transaction while active
  */
-export class DeferredCommand<TState, TPayload, TData>  extends StoreCommand<TState> {
+export class DeferredCommand<TState, TPayload, TData>  extends AsyncPayloadCommand<TState, TPayload> {
 
   get initialLoad() {
     return false;

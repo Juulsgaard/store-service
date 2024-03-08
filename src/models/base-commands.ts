@@ -14,6 +14,32 @@ export abstract class BaseCommand {
  */
 export abstract class StoreCommand<TState> extends BaseCommand {
 
+  protected context: StoreServiceContext<TState>
+
+  protected constructor(context: StoreServiceContext<TState>) {
+    super();
+
+    this.context = context;
+  }
+
+  /**
+   * Name of the Command
+   */
+  get name() {
+    return this.context.getCommandName(this)
+  };
+}
+
+export interface PayloadCommand<TPayload> {
+  /**
+   * Emit the command with no status returned
+   * @param payload
+   */
+  emit(payload: TPayload): void;
+}
+
+export abstract class AsyncCommand<TState> extends StoreCommand<TState> {
+
   abstract get initialLoad(): boolean;
 
   /**
@@ -33,12 +59,9 @@ export abstract class StoreCommand<TState> extends BaseCommand {
    */
   error$: Observable<Error|undefined>;
 
-  protected context: StoreServiceContext<TState>
 
   protected constructor(context: StoreServiceContext<TState>) {
-    super();
-
-    this.context = context;
+    super(context);
 
     this.loading$ = context.getLoadState$(this, undefined).pipe(
       map(x => !!x && x > 0),
@@ -60,23 +83,15 @@ export abstract class StoreCommand<TState> extends BaseCommand {
   }
 
   /**
-   * Name of the Command
-   */
-  get name() {
-    return this.context.getCommandName(this)
-  };
-
-  /**
    * Resets the failure state of the command
    * @internal
    */
   resetFailState() {
     this.context.resetFailState(this, undefined);
   }
-
 }
 
-export abstract class PayloadCommand<TState, TPayload> extends StoreCommand<TState> {
+export abstract class AsyncPayloadCommand<TState, TPayload> extends AsyncCommand<TState> implements PayloadCommand<TPayload> {
 
   protected getRequestId?: (payload: TPayload) => string;
 
@@ -126,6 +141,12 @@ export abstract class PayloadCommand<TState, TPayload> extends StoreCommand<TSta
     }
     this.context.resetFailState(this, this.getRequestId(payload));
   }
+
+  /**
+   * Emit the command with no status returned
+   * @param payload
+   */
+  abstract emit(payload: TPayload): void;
 }
 
 export type ActionCommandUnion<TState, TPayload, TData> = ActionCommand<TState, TPayload, TData> | DeferredCommand<TState, TPayload, TData>;

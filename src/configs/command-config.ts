@@ -5,7 +5,7 @@ import {DeferredCommandObjectConfig} from "./deferred-command-config";
 import {rootReducerScope} from "../models/reducer-scope";
 import {PlainCommandObjectConfig} from "./plain-command-config";
 import {QueueAction} from "../models/queue-action";
-import {StoreCommand} from "../models/base-commands";
+import {AsyncCommand, StoreCommand} from "../models/base-commands";
 import {SimpleObject} from "@juulsgaard/ts-tools";
 
 /**
@@ -21,20 +21,20 @@ export interface StoreServiceContext<TState> extends BaseStoreServiceContext<TSt
 
   displayError(message: string|undefined, error: Error): void;
 
-  getLoadState(cmd: StoreCommand<TState>, requestId: string|undefined): number | undefined;
+  getLoadState(cmd: AsyncCommand<TState>, requestId: string|undefined): number | undefined;
 
-  getLoadState$(cmd: StoreCommand<TState>, requestId: string|undefined): Observable<number | undefined>;
+  getLoadState$(cmd: AsyncCommand<TState>, requestId: string|undefined): Observable<number | undefined>;
 
-  getFailureState$(cmd: StoreCommand<TState>, requestId: string|undefined): Observable<boolean>;
-  getErrorState$(cmd: StoreCommand<TState>, requestId: string|undefined): Observable<Error|undefined>;
+  getFailureState$(cmd: AsyncCommand<TState>, requestId: string|undefined): Observable<boolean>;
+  getErrorState$(cmd: AsyncCommand<TState>, requestId: string|undefined): Observable<Error|undefined>;
 
-  startLoad(cmd: StoreCommand<TState>, requestId: string|undefined): void;
+  startLoad(cmd: AsyncCommand<TState>, requestId: string|undefined): void;
 
-  endLoad(cmd: StoreCommand<TState>, requestId: string|undefined): void;
+  endLoad(cmd: AsyncCommand<TState>, requestId: string|undefined): void;
 
-  failLoad(cmd: StoreCommand<TState>, error: Error, requestId: string|undefined): void;
+  failLoad(cmd: AsyncCommand<TState>, error: Error, requestId: string|undefined): void;
 
-  resetFailState(cmd: StoreCommand<TState>, requestId: string|undefined): void;
+  resetFailState(cmd: AsyncCommand<TState>, requestId: string|undefined): void;
 
   errorIsCritical: (error: any) => boolean;
 }

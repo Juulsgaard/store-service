@@ -6,7 +6,7 @@ import {map} from "rxjs/operators";
 import {StoreServiceContext} from "../configs/command-config";
 import {QueueAction} from "../models/queue-action";
 import {PlainCommand} from "./plain-command";
-import {StoreCommand, StoreCommandUnion} from "../models/base-commands";
+import {AsyncCommand, AsyncPayloadCommand, StoreCommandUnion} from "../models/base-commands";
 import {IdMap, parseIdMap} from "../lib/id-map";
 import {IValueLoadingState, Loading, LoadingState} from "@juulsgaard/rxjs-tools";
 
@@ -45,7 +45,7 @@ export interface CacheLoadOptions {
 /**
  * A command that loads data from a cache, and then applies a reducer
  */
-export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends StoreCommand<TState> {
+export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends AsyncCommand<TState> {
 
   protected getRequestId?: (payload: TPayload) => string;
 
@@ -71,7 +71,7 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
     this.cacheLoaded$ = this.loaded$;
     this.cacheFailed$ = this.failed$;
 
-    if (fallbackCommand) {
+    if (fallbackCommand instanceof AsyncCommand) {
       this.loading$ = combineLatest([this.cacheLoading$, fallbackCommand.loading$]).pipe(
         map(([x, y]) => x || y),
         distinctUntilChanged()
@@ -265,12 +265,13 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends St
 
     const resetFallback = () => {
       if (!this.fallbackCommand) return;
-      if ('resetFailureStateById' in this.fallbackCommand) {
+      if (this.fallbackCommand instanceof AsyncPayloadCommand) {
         this.fallbackCommand.resetFailureStateById(cmdPayload);
         return;
       }
-
-      this.fallbackCommand.resetFailState();
+      if (this.fallbackCommand instanceof AsyncCommand) {
+        this.fallbackCommand.resetFailState();
+      }
     };
 
     //</editor-fold>

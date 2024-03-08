@@ -6,7 +6,7 @@ import {map} from "rxjs/operators";
 import {StoreServiceContext} from "../configs/command-config";
 import {QueueAction} from "../models/queue-action";
 import {retryAction} from "../lib/retry";
-import {PayloadCommand} from "../models/base-commands";
+import {AsyncPayloadCommand} from "../models/base-commands";
 import {IdMap} from "../lib/id-map";
 import {IValueLoadingState, Loading} from "@juulsgaard/rxjs-tools";
 
@@ -35,7 +35,7 @@ export interface ActionCommandOptions<TPayload, TData> {
 /**
  * A command that triggers an action, and then applies a reducer
  */
-export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TState, TPayload> {
+export class ActionCommand<TState, TPayload, TData> extends AsyncPayloadCommand<TState, TPayload> {
 
   get initialLoad() {
     return this.options.initialLoad
@@ -201,7 +201,7 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
    * Emit the command with no status returned
    * @param payload
    */
-  emit(payload: TPayload) {
+  override emit(payload: TPayload) {
     this.execute(payload, false);
   };
 
