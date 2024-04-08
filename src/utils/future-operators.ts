@@ -1,5 +1,5 @@
 import {Observable, OperatorFunction, startWith} from "rxjs";
-import {Future, LoadingState} from "@juulsgaard/rxjs-tools";
+import {future, Future, LoadingState} from "@juulsgaard/rxjs-tools";
 import {map} from "rxjs/operators";
 
 /**
@@ -24,9 +24,9 @@ export function switchFutureLoad<TPayload, TData>(
           loading = load(payload);
           const value$ = loading.result$.pipe(startWith(undefined));
 
-          const future = Future.Create(value$, loading.loading$, loading.error$);
+          const futures = future(value$, loading.loading$, loading.error$);
 
-          subscriber.next(future);
+          subscriber.next(futures);
 
           oldLoad?.cancel();
         },
@@ -54,6 +54,6 @@ export function mapFuture<TPayload, TData>(
   error$?: (payload: TPayload) => Observable<Error | boolean | undefined>,
 ): OperatorFunction<TPayload, Future<NonNullable<TData>>> {
   return (source) => source.pipe(
-    map(payload => Future.Create(value$(payload), loading$?.(payload), error$?.(payload)))
+    map(payload => future(value$(payload), loading$?.(payload), error$?.(payload)))
   );
 }
