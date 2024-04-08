@@ -12,30 +12,31 @@
   "files": [
     "dist/**"
   ],
+  "peerDependencies": {
+    "@juulsgaard/rxjs-tools": "^1.7.0",
+    "@juulsgaard/ts-tools": "^1.6.0",
+    "rxjs": "^7.8.1",
+    "typescript": "~5.4.4"
+  },
   "devDependencies": {
-    "@juulsgaard/ts-tools": "1.6.0",
     "@juulsgaard/rxjs-tools": "1.7.0",
+    "@juulsgaard/ts-tools": "1.6.0",
     "@types/jest": "^29.5.12",
     "cross-env": "^7.0.3",
     "fake-indexeddb": "^5.0.2",
     "jest": "^29.7.0",
     "rollup": "^4.14.1",
     "rollup-plugin-dts": "^6.1.0",
+    "rollup-plugin-esbuild": "^6.1.1",
     "rxjs": "7.8.1",
     "ts-jest": "^29.1.2",
     "typescript": "~5.4.4"
   },
-  "peerDependencies": {
-    "@juulsgaard/ts-tools": "^1.6.0",
-    "@juulsgaard/rxjs-tools": "^1.7.0",
-    "rxjs": "^7.8.1",
-    "typescript": "~5.4.4"
-  },
   "scripts": {
-    "build": "tsc",
+    "build": "rollup -c",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules npx jest --config jestconfig.json",
-    "prepublishOnly": "tsc && rollup -c",
+    "prepublishOnly": "rollup -c",
     "link": "npm run prepublishOnly && yalc push"
-    },
+  },
   "packageManager": "pnpm@8.15.6"
 }

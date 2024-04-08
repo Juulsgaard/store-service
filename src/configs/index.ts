@@ -1,2 +1,2 @@
 
-export {BaseStoreServiceContext} from './command-config';
+export type {BaseStoreServiceContext} from './command-config';
