@@ -250,6 +250,10 @@ class CacheTransactionContext<TChunk> {
     return await this.adapter.readValue<TChunk>(this.chunkId, id);
   }
 
+  async readValuesWithTag(tag: string): Promise<CacheItemData<TChunk>[]> {
+    return await this.adapter.readValuesWithTag<TChunk>(this.chunkId, tag);
+  }
+
   async readAllValues(): Promise<CacheItemData<TChunk>[]> {
     return await this.adapter.readAllValues<TChunk>(this.chunkId);
   }

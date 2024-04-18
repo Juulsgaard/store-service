@@ -39,6 +39,35 @@ export class CacheCommandConfig<TState extends Record<string, any>, TCache> {
   }
 
   /**
+   * Create an actions based on loading all items with a matching tag
+   */
+  fromTag(): CacheCommandObjectConfig<TState, TState, string, TCache[]>;
+  /**
+   * Create an actions based on loading all items with a matching tag
+   * @param map - Map payload to tag
+   */
+  fromTag<TPayload>(map: IdMap<TPayload>): CacheCommandObjectConfig<TState, TState, TPayload, TCache[]>;
+  fromTag(map?: IdMap<unknown>): CacheCommandObjectConfig<TState, TState, any, TCache[]> {
+    const tagMap = map ? parseIdMap(map) : (x: unknown) => x as string;
+
+    const cacheOptions: CacheCommandOptions<unknown, TCache[]> = {
+      initialLoad: false,
+      action: ({options, payload}) => this.cache.loadFromTag(tagMap(payload), options),
+      failCondition: x => x.length === 0,
+      cacheWhenOnline: true,
+      fallbackWhenOffline: true,
+      cancelConcurrent: false
+    }
+
+    return new CacheCommandObjectConfig<TState, TState, unknown, TCache[]>(
+      this.context,
+      cacheOptions,
+      rootReducerScope,
+      []
+    );
+  }
+
+  /**
    * Create an action based on loading a single cache item
    */
   fromSingle(): CacheCommandObjectConfig<TState, TState, string, TCache>;

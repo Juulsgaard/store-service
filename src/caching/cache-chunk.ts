@@ -1,5 +1,6 @@
 import {
-  concatWith, distinctUntilChanged, EMPTY, first, from, mergeWith, Observable, of, Subject, Subscription, switchMap, tap
+  concatWith, distinctUntilChanged, EMPTY, first, from, mergeWith, Observable, of, OperatorFunction, Subject,
+  Subscription, switchMap, tap
 } from "rxjs";
 import {catchError, concatMap, map, pairwise} from "rxjs/operators";
 import {arrToMap} from "@juulsgaard/ts-tools";
@@ -196,26 +197,30 @@ export class CacheChunk<TChunk> {
     let values$: Observable<CacheItemData<TChunk>[] | undefined>;
 
     if (options?.maxAge) {
-      values$ = from(this.readAll()).pipe(
-        map(list => {
-
-          // Get the oldest date
-          const oldest = list.reduce((state: number, x: CacheItemData<TChunk>) => {
-              const time = (options.absoluteAge ? x.createdAt : x.updatedAt).getTime();
-              if (time < state) return time;
-              return state;
-            },
-            Date.now()
-          );
-
-          if (!oldest) return list;
-          const age = Date.now() - oldest;
-          if (age > options.maxAge!) return undefined;
-          return list;
-        })
-      );
+      values$ = from(this.readAll()).pipe(filterOld(options));
     } else {
       values$ = from(this.readAll());
+    }
+
+    return values$.pipe(
+      tap(list => list?.forEach(x => this.ignoreValueChange.add(x.id))),
+      map(list => list?.map(x => x.data))
+    );
+  }
+
+  /**
+   * Load all items with the given tag and mark them as loaded
+   * Should only be used to populate a store
+   * @param tag
+   * @param options
+   */
+  loadFromTag(tag: string, options?: CacheLoadOptions): Observable<TChunk[] | undefined> {
+    let values$: Observable<CacheItemData<TChunk>[] | undefined>;
+
+    if (options?.maxAge) {
+      values$ = from(this.readWithTag(tag)).pipe(filterOld(options));
+    } else {
+      values$ = from(this.readWithTag(tag));
     }
 
     return values$.pipe(
@@ -241,6 +246,14 @@ export class CacheChunk<TChunk> {
     return this.context.useTransaction(trx => trx.readAllValues(), true);
   }
 
+  /**
+   * Read all values from the cache with the given tag
+   */
+  async readWithTag(tag: string): Promise<CacheItemData<TChunk>[]> {
+    if (!await this.context.isAvailable()) return [];
+    return this.context.useTransaction(trx => trx.readValuesWithTag(tag), true);
+  }
+
   //</editor-fold>
 
   private emitManualChanges(changes: Changes<TChunk>) {
@@ -255,4 +268,23 @@ export class CacheChunk<TChunk> {
   clearTag(tag: string) {
     this.emitManualChanges({removedTags: [{id: tag}]});
   }
+}
+
+function filterOld<T>(options: CacheLoadOptions): OperatorFunction<CacheItemData<T>[], CacheItemData<T>[]|undefined> {
+  return map(list => {
+
+    // Get the oldest date
+    const oldest = list.reduce((state: number, x: CacheItemData<T>) => {
+        const time = (options.absoluteAge ? x.createdAt : x.updatedAt).getTime();
+        if (time < state) return time;
+        return state;
+      },
+      Date.now()
+    );
+
+    if (!oldest) return list;
+    const age = Date.now() - oldest;
+    if (age > options.maxAge!) return undefined;
+    return list;
+  });
 }

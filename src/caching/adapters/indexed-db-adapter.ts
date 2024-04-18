@@ -152,9 +152,32 @@ class IndexedDbTransactionAdapter implements CacheTransactionAdapter {
     });
   }
 
+  readValuesWithTag<TData>(chunkId: string, tag: string): Promise<CacheItemData<TData>[]> {
+    return new Promise((resolve, reject) => {
+      const request = this.transaction
+        .objectStore('chunks')
+        .index('chunkId')
+        .getAll(chunkId) as IDBRequest<ValueData<TData>[]>;
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const list = request.result.filter(x => x.tags.includes(tag));
+        resolve(list.map(data => ({
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+          data: data.data,
+          id: data.valueId
+        })));
+      };
+    });
+  }
+
   readAllValues<TData>(chunkId: string): Promise<CacheItemData<TData>[]> {
     return new Promise((resolve, reject) => {
-      const request = this.transaction.objectStore('chunks').index('chunkId').getAll(chunkId) as IDBRequest<ValueData<TData>[]>;
+      const request = this.transaction
+        .objectStore('chunks')
+        .index('chunkId')
+        .getAll(chunkId) as IDBRequest<ValueData<TData>[]>;
 
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {

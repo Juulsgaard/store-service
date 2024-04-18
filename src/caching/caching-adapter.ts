@@ -39,6 +39,7 @@ export interface CacheTransactionAdapter {
 
   readValue<TData>(chunkId: string, id: string): Promise<CacheItemData<TData> | undefined>;
 
+  readValuesWithTag<TData>(chunkId: string, tag: string): Promise<CacheItemData<TData>[]>;
   readAllValues<TData>(chunkId: string): Promise<CacheItemData<TData>[]>;
 
   commit(): Promise<void>;
