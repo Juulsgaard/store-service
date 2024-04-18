@@ -49,10 +49,6 @@ export class ActionCommand<TState, TPayload, TData> extends AsyncPayloadCommand<
     super(context, options.requestId);
   }
 
-  /**
-   * @param payload
-   * @internal
-   */
   alreadyLoaded(payload: TPayload): boolean {
     if (!this.options.initialLoad) return false;
 
