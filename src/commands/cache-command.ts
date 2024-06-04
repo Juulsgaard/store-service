@@ -47,6 +47,8 @@ export interface CacheLoadOptions {
  */
 export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends AsyncCommand<TState> {
 
+  readonly isSync = false;
+
   protected getRequestId?: (payload: TPayload) => string;
 
   get initialLoad() {

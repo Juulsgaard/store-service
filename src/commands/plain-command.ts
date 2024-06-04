@@ -4,6 +4,8 @@ import {PayloadCommand, StoreCommand} from "../models/base-commands";
 
 export class PlainCommand<TState, TData> extends StoreCommand<TState> implements PayloadCommand<TData> {
 
+  readonly isSync = true;
+
   get initialLoad() {
     return false;
   }

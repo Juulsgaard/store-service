@@ -1,6 +1,6 @@
 {
   "name": "@juulsgaard/store-service",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "A state management system for Javascript",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

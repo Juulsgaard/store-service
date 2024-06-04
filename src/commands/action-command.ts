@@ -37,6 +37,8 @@ export interface ActionCommandOptions<TPayload, TData> {
  */
 export class ActionCommand<TState, TPayload, TData> extends AsyncPayloadCommand<TState, TPayload> {
 
+  readonly isSync = false;
+
   get initialLoad() {
     return this.options.initialLoad
   }
@@ -73,7 +75,7 @@ export class ActionCommand<TState, TPayload, TData> extends AsyncPayloadCommand<
    * Dispatch the command and return a LoadingState to monitor command progress
    * @param payload - The command payload
    */
-  observe(payload: TPayload): IValueLoadingState<TData> {
+  override observe(payload: TPayload): IValueLoadingState<TData> {
     return this.execute(payload, false);
   }
 
@@ -205,7 +207,7 @@ export class ActionCommand<TState, TPayload, TData> extends AsyncPayloadCommand<
    * Emit the command with a Promise status
    * @param payload
    */
-  emitAsync(payload: TPayload): Promise<TData> {
+  override emitAsync(payload: TPayload): Promise<TData> {
     return this.execute(payload, false).resultAsync;
   };
 }

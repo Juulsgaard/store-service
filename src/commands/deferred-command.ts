@@ -26,6 +26,8 @@ export interface DeferredCommandOptions<TPayload, TData> {
  */
 export class DeferredCommand<TState, TPayload, TData>  extends AsyncPayloadCommand<TState, TPayload> {
 
+  readonly isSync = true;
+
   get initialLoad() {
     return false;
   }

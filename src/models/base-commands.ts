@@ -3,8 +3,12 @@ import {map} from "rxjs/operators";
 import {distinctUntilChanged, Observable} from "rxjs";
 import {ActionCommand, DeferredCommand, PlainCommand} from "../commands";
 import {IdMap, parseIdMap} from "../lib/id-map";
+import {ILoadingState} from "@juulsgaard/rxjs-tools";
 
 export abstract class BaseCommand {
+
+  /** True if the commands triggers a reducer synchronously */
+  abstract readonly isSync: boolean;
 
   abstract get name(): string;
 }
@@ -143,8 +147,20 @@ export abstract class AsyncPayloadCommand<TState, TPayload> extends AsyncCommand
   }
 
   /**
+   * Dispatch the command and return a LoadingState to monitor command progress
+   * @param payload - The command payload
+   */
+  abstract observe(payload: TPayload): ILoadingState;
+
+  /**
+   * Dispatch the command and return a Promise to monitor command progress
+   * @param payload - The command payload
+   */
+  abstract emitAsync(payload: TPayload): Promise<unknown>;
+
+  /**
    * Emit the command with no status returned
-   * @param payload
+   * @param payload - The command payload
    */
   abstract emit(payload: TPayload): void;
 }
