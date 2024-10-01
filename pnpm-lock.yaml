@@ -5,12 +5,18 @@ settings:
   excludeLinksFromLockfile: false
 
 devDependencies:
+  '@angular/core':
+    specifier: 18.2.5
+    version: 18.2.5(rxjs@7.8.1)(zone.js@0.14.10)
   '@juulsgaard/rxjs-tools':
     specifier: 1.7.4
-    version: 1.7.4(@juulsgaard/ts-tools@1.6.3)(rxjs@7.8.1)(typescript@5.5.4)
+    version: 1.7.4(@juulsgaard/ts-tools@1.6.4)(rxjs@7.8.1)(typescript@5.5.4)
+  '@juulsgaard/signal-tools':
+    specifier: 18.0.0
+    version: 18.0.0(@angular/core@18.2.5)(@juulsgaard/rxjs-tools@1.7.4)(@juulsgaard/ts-tools@1.6.4)(rxjs@7.8.1)(tslib@2.7.0)(typescript@5.5.4)
   '@juulsgaard/ts-tools':
-    specifier: 1.6.3
-    version: 1.6.3(typescript@5.5.4)
+    specifier: 1.6.4
+    version: 1.6.4(typescript@5.5.4)
   '@types/jest':
     specifier: ^29.5.12
     version: 29.5.12
@@ -50,6 +56,18 @@ packages:
     dependencies:
       '@jridgewell/gen-mapping': 0.1.1
       '@jridgewell/trace-mapping': 0.3.22
+    dev: true
+
+  /@angular/core@18.2.5(rxjs@7.8.1)(zone.js@0.14.10):
+    resolution: {integrity: sha512-5BLVc5gXxzanQkADNS9WPsor3vNF5nQcyIHBi5VScErwM5vVZ7ATH1iZwaOg1ykDEVTFVhKDwD0X1aaqGDbhmQ==}
+    engines: {node: ^18.19.1 || ^20.11.1 || >=22.0.0}
+    peerDependencies:
+      rxjs: ^6.5.3 || ^7.4.0
+      zone.js: ~0.14.10
+    dependencies:
+      rxjs: 7.8.1
+      tslib: 2.4.0
+      zone.js: 0.14.10
     dev: true
 
   /@babel/code-frame@7.23.5:
@@ -903,20 +921,38 @@ packages:
       '@jridgewell/sourcemap-codec': 1.4.15
     dev: true
 
-  /@juulsgaard/rxjs-tools@1.7.4(@juulsgaard/ts-tools@1.6.3)(rxjs@7.8.1)(typescript@5.5.4):
+  /@juulsgaard/rxjs-tools@1.7.4(@juulsgaard/ts-tools@1.6.4)(rxjs@7.8.1)(typescript@5.5.4):
     resolution: {integrity: sha512-Iwa/0U5pAr7pAeo5lxllTpdT7fuNgeILmDOc9jSKlWkj2SFXgLm3zR8vEqFZy20mc378ZeznSqpODjyopaFM7A==}
     peerDependencies:
       '@juulsgaard/ts-tools': ^1.6.3
       rxjs: ^7.8.1
       typescript: ~5.5.4
     dependencies:
-      '@juulsgaard/ts-tools': 1.6.3(typescript@5.5.4)
+      '@juulsgaard/ts-tools': 1.6.4(typescript@5.5.4)
       rxjs: 7.8.1
       typescript: 5.5.4
     dev: true
 
-  /@juulsgaard/ts-tools@1.6.3(typescript@5.5.4):
-    resolution: {integrity: sha512-XDteB4EP11T44GJcFZLyT1DpLkFDoCadu7hcLLGn5p/s5TmE8bg4RoxaFX6oTdsTL5yDrz41Ys4YuwmtVsPNMw==}
+  /@juulsgaard/signal-tools@18.0.0(@angular/core@18.2.5)(@juulsgaard/rxjs-tools@1.7.4)(@juulsgaard/ts-tools@1.6.4)(rxjs@7.8.1)(tslib@2.7.0)(typescript@5.5.4):
+    resolution: {integrity: sha512-DIq33BHzsTQW5xgg4isLHKJxhIoTBjOidthxmlH9K7ceOHnEwZY0iHYKx/hSvX6hphXniuyfhw2om6I4AWUpyg==}
+    peerDependencies:
+      '@angular/core': ^18.2.5
+      '@juulsgaard/rxjs-tools': ^1.7.4
+      '@juulsgaard/ts-tools': ^1.6.4
+      rxjs: ^7.8.1
+      tslib: ^2.7.0
+      typescript: ~5.5.4
+    dependencies:
+      '@angular/core': 18.2.5(rxjs@7.8.1)(zone.js@0.14.10)
+      '@juulsgaard/rxjs-tools': 1.7.4(@juulsgaard/ts-tools@1.6.4)(rxjs@7.8.1)(typescript@5.5.4)
+      '@juulsgaard/ts-tools': 1.6.4(typescript@5.5.4)
+      rxjs: 7.8.1
+      tslib: 2.7.0
+      typescript: 5.5.4
+    dev: true
+
+  /@juulsgaard/ts-tools@1.6.4(typescript@5.5.4):
+    resolution: {integrity: sha512-gSU6kO8JDZ8Htzt4MPeTE6eaJkNiuRogNDM5AcbmUh2wuyUJNIQTXDxiej8Lvkdc5167p9+bE+ouW5KYUfNBiQ==}
     peerDependencies:
       typescript: ~5.5.4
     dependencies:
@@ -2929,6 +2965,10 @@ packages:
     resolution: {integrity: sha512-d6xOpEDfsi2CZVlPQzGeux8XMwLT9hssAsaPYExaQMuYskwb+x1x7J371tWlbBdWHroy99KnVB6qIkUbs5X3UQ==}
     dev: true
 
+  /tslib@2.7.0:
+    resolution: {integrity: sha512-gLXCKdN1/j47AiHiOkJN69hJmcbGTHI0ImLmbYLHykhgeN0jVGola9yVjFgzCUklsZQMW55o+dW7IXv3RCXDzA==}
+    dev: true
+
   /type-detect@4.0.8:
     resolution: {integrity: sha512-0fr/mIH1dlO+x7TlcMy+bIDqKPsw/70tVyeHW787goQjhmqaZe10uwLujubK9q9Lg6Fiho1KUKDYz0Z7k7g5/g==}
     engines: {node: '>=4'}
@@ -3030,4 +3070,8 @@ packages:
   /yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
+    dev: true
+
+  /zone.js@0.14.10:
+    resolution: {integrity: sha512-YGAhaO7J5ywOXW6InXNlLmfU194F8lVgu7bRntUF3TiG8Y3nBK0x1UJJuHUP/e8IyihkjCYqhCScpSwnlaSRkQ==}
     dev: true

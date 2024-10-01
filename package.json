@@ -13,14 +13,18 @@
     "dist/**"
   ],
   "peerDependencies": {
+    "@angular/core": "^18.2.5",
+    "@juulsgaard/ts-tools": "^1.6.4",
+    "@juulsgaard/signal-tools": "^18.0.0",
     "@juulsgaard/rxjs-tools": "^1.7.4",
-    "@juulsgaard/ts-tools": "^1.6.3",
     "rxjs": "^7.8.1",
     "typescript": "~5.5.4"
   },
   "devDependencies": {
+    "@angular/core": "18.2.5",
+    "@juulsgaard/ts-tools": "1.6.4",
     "@juulsgaard/rxjs-tools": "1.7.4",
-    "@juulsgaard/ts-tools": "1.6.3",
+    "@juulsgaard/signal-tools": "18.0.0",
     "@types/jest": "^29.5.12",
     "cross-env": "^7.0.3",
     "fake-indexeddb": "^6.0.0",
@@ -38,5 +42,5 @@
     "prepublishOnly": "rollup -c",
     "link": "npm run prepublishOnly && yalc push"
   },
-  "packageManager": "pnpm@8.15.6"
+  "packageManager": "pnpm@9.11.0"
 }
