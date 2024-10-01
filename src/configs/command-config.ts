@@ -1,4 +1,3 @@
-import {Observable} from "rxjs";
 import {CommandAction} from "../models/store-types";
 import {ActionCommandObjectConfig} from "./action-command-config";
 import {DeferredCommandObjectConfig} from "./deferred-command-config";
@@ -7,6 +6,7 @@ import {PlainCommandObjectConfig} from "./plain-command-config";
 import {QueueAction} from "../models/queue-action";
 import {AsyncCommand, StoreCommand} from "../models/base-commands";
 import {SimpleObject} from "@juulsgaard/ts-tools";
+import {Signal} from "@angular/core";
 
 /**
  * A context element allowing commands to interface with the store
@@ -16,27 +16,19 @@ export interface StoreServiceContext<TState> extends BaseStoreServiceContext<TSt
   getCommandName(cmd: StoreCommand<TState>): string;
 
   displaySuccess(message: string): void;
+  displayError(message: string|undefined, error: Error): void;
 
   logActionRetry(command: string, attempt: number, nextDelay: number): void;
 
-  displayError(message: string|undefined, error: Error): void;
-
-  getLoadState(cmd: AsyncCommand<TState>, requestId: string|undefined): number | undefined;
-
-  getLoadState$(cmd: AsyncCommand<TState>, requestId: string|undefined): Observable<number | undefined>;
-
-  getFailureState$(cmd: AsyncCommand<TState>, requestId: string|undefined): Observable<boolean>;
-  getErrorState$(cmd: AsyncCommand<TState>, requestId: string|undefined): Observable<Error|undefined>;
+  getLoadState(cmd: AsyncCommand<TState>, requestId: string|undefined): Signal<number | undefined>;
+  getErrorState(cmd: AsyncCommand<TState>, requestId: string|undefined): Signal<Error|undefined>;
 
   startLoad(cmd: AsyncCommand<TState>, requestId: string|undefined): void;
-
   endLoad(cmd: AsyncCommand<TState>, requestId: string|undefined): void;
-
   failLoad(cmd: AsyncCommand<TState>, error: Error, requestId: string|undefined): void;
+  resetErrorState(cmd: AsyncCommand<TState>, requestId: string|undefined): void;
 
-  resetFailState(cmd: AsyncCommand<TState>, requestId: string|undefined): void;
-
-  errorIsCritical: (error: any) => boolean;
+  errorIsCritical(error: any): boolean;
 }
 
 export interface BaseStoreServiceContext<TState> {

@@ -91,7 +91,7 @@ export abstract class AsyncCommand<TState> extends StoreCommand<TState> {
    * @internal
    */
   resetFailState() {
-    this.context.resetFailState(this, undefined);
+    this.context.resetErrorState(this, undefined);
   }
 }
 
@@ -143,7 +143,7 @@ export abstract class AsyncPayloadCommand<TState, TPayload> extends AsyncCommand
       this.resetFailState();
       return;
     }
-    this.context.resetFailState(this, this.getRequestId(payload));
+    this.context.resetErrorState(this, this.getRequestId(payload));
   }
 
   /**

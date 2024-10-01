@@ -1,21 +1,15 @@
 import {
-  BehaviorSubject, distinctUntilChanged, filter, isObservable, Observable, Subject, Subscription, tap
-} from "rxjs";
-import {
   BaseStoreServiceContext, StoreClientCommandConfig, StoreCommandConfig, StoreServiceContext
 } from "./configs/command-config";
-import {Reducer} from "./models/store-types";
-import {IStoreConfigService} from "./models/store-config-service";
-import {map} from "rxjs/operators";
-import {arrToMap, deepCopy, deepFreeze, Disposable, titleCase} from "@juulsgaard/ts-tools";
-import {QueueAction} from "./models/queue-action";
-import {AsyncCommand, BaseCommand, StoreCommand} from "./models/base-commands";
-import {cache} from "@juulsgaard/rxjs-tools";
+import {AsyncCommand, BaseCommand, IStoreConfigService, StoreCommand} from "./models";
+import {arrToMap, deepCopy, deepFreeze, titleCase} from "@juulsgaard/ts-tools";
+import {DestroyRef, inject, signal, Signal, untracked, WritableSignal} from "@angular/core"
+import {ActionQueue} from "./utils/action-queue";
 
 /**
  * A service managing the store state
  */
-export abstract class StoreService<TState extends Record<string, any>> implements Disposable {
+export abstract class StoreService<TState extends Record<string, any>> {
 
   /**
    * Get the context object from a store.
@@ -24,18 +18,11 @@ export abstract class StoreService<TState extends Record<string, any>> implement
    */
   static ExtractContext<T extends Record<string, any>>(store: StoreService<T>): BaseStoreServiceContext<T> {return store.context}
 
-  private _state$: BehaviorSubject<TState>;
-  /**
-   * The state observable
-   */
-  state$: Observable<TState>;
+  private readonly _state: WritableSignal<TState>;
+  /** The state signal */
+  readonly state: Signal<TState>;
 
-  /**
-   * The current state
-   */
-  get state(): TState {
-    return this._state$.value;
-  }
+  private readonly queue: ActionQueue<TState>;
 
   /**
    * Generated names for all actions
@@ -63,27 +50,27 @@ export abstract class StoreService<TState extends Record<string, any>> implement
    * The current loading state of all commands
    * @private
    */
-  private loadStates = new Map<StoreCommand<TState>, BehaviorSubject<number | undefined>>();
+  private loadStates = new Map<StoreCommand<TState>, WritableSignal<number | undefined>>();
 
   /**
    * The current loading state of all commands grouped on RequestId
    * @private
    */
-  private requestLoadStates = new Map<StoreCommand<TState>, Map<string, BehaviorSubject<number | undefined>>>();
+  private requestLoadStates = new Map<StoreCommand<TState>, Map<string, WritableSignal<number | undefined>>>();
   //</editor-fold>
 
-  //<editor-fold desc="Failure State">
+  //<editor-fold desc="Error State">
   /**
    * The current failure state of all commands
    * @private
    */
-  private errorStates = new Map<StoreCommand<TState>, BehaviorSubject<Error|undefined>>();
+  private errorStates = new Map<StoreCommand<TState>, WritableSignal<Error|undefined>>();
 
   /**
    * The current failure state of all commands grouped on RequestId
    * @private
    */
-  private requestErrorStates = new Map<StoreCommand<TState>, Map<string, BehaviorSubject<Error|undefined>>>();
+  private requestErrorStates = new Map<StoreCommand<TState>, Map<string, WritableSignal<Error|undefined>>>();
   //</editor-fold>
 
   /**
@@ -92,34 +79,39 @@ export abstract class StoreService<TState extends Record<string, any>> implement
    */
   protected context: StoreServiceContext<TState>;
 
-  /**
-   * A queue of reducer transactions
-   * Every observable is a transaction that has to complete before the next can start
-   * @private
-   */
-  private reducerQueue$!: Subject<QueueAction<TState>>;
-  private queueSub?: Subscription;
+  private configService: IStoreConfigService;
+  private onDestroy = inject(DestroyRef);
+  private disposed = false;
 
-  protected constructor(private initialState: TState, private configService: IStoreConfigService) {
-    this._state$ = new BehaviorSubject(this.freeze(deepCopy(initialState)));
-    this.state$ = this._state$.pipe(
-      cache()
-    );
+  protected constructor(private initialState: TState, configService?: IStoreConfigService) {
+    this.configService = configService ?? inject(IStoreConfigService);
+
+    this._state = signal(this.freeze(deepCopy(initialState)));
+    this.state = this._state.asReadonly();
+
     const name = this.constructor.name.replace(/(^[_\W+]+|[_\W]+$)/g, '');
     this.storeName = titleCase(name);
 
-    this.startQueue();
+    this.queue = new ActionQueue(this.state, x => this.applyState(x));
 
     this.context = {
       getCommandName: cmd => this.getCommandName(cmd),
-      applyCommand: reducer$ => this.reducerQueue$.next(reducer$),
-      getLoadState: (cmd: AsyncCommand<TState>, requestId: string|undefined) => this.getLoadState$(cmd, requestId).value,
-      getLoadState$: (cmd: AsyncCommand<TState>, requestId: string|undefined) => this.getLoadState$(cmd, requestId).asObservable(),
-      getErrorState$: (cmd: AsyncCommand<TState>, requestId: string|undefined) => this.getErrorState$(cmd, requestId).asObservable(),
-      getFailureState$: (cmd: AsyncCommand<TState>, requestId: string|undefined) => this.getFailureState$(cmd, requestId),
-      displayError: this.configService.displayError.bind(this.configService),
-      displaySuccess: this.configService.displaySuccess.bind(this.configService),
-      logActionRetry: this.configService.logActionRetry.bind(this.configService),
+
+      displaySuccess: msg => this.configService.displaySuccess(msg),
+      displayError: (msg, error) => this.configService.displayError(msg, error),
+      logActionRetry: (command, attempt, nextDelay) => this.configService.logActionRetry(command, attempt, nextDelay),
+
+      errorIsCritical: error => this.configService.errorIsCritical(error),
+      isProduction: this.configService.isProduction,
+
+      applyCommand: reducer$ => {
+        if (this.disposed) return;
+        this.queue.addAction(reducer$);
+      },
+
+      getErrorState: (cmd, requestId) => this.getErrorState(cmd, requestId).asReadonly(),
+      getLoadState: (cmd, requestId) => this.getLoadState(cmd, requestId).asReadonly(),
+
       startLoad: (cmd: AsyncCommand<TState>, requestId: string|undefined) => {
         this.startLoad(cmd, undefined);
         if (requestId) this.startLoad(cmd, requestId)
@@ -132,102 +124,17 @@ export abstract class StoreService<TState extends Record<string, any>> implement
         this.failLoad(cmd, error, undefined);
         if (requestId) this.failLoad(cmd, error, requestId)
       },
-      resetFailState: (cmd: AsyncCommand<TState>, requestId: string|undefined) => {
-        this.resetFailState(cmd, undefined);
-        if (requestId) this.resetFailState(cmd, requestId)
-      },
-      isProduction: this.configService.isProduction,
-      errorIsCritical: this.configService.errorIsCritical.bind(this.configService)
-    }
-  }
-
-  //<editor-fold desc="Queue Logic">
-  /**
-   * Clear and set up the Reducer queue
-   * @private
-   */
-  private startQueue() {
-    if (this.disposed) throw Error('The store has been disposed');
-    this.queueSub?.unsubscribe();
-    this.reducerQueue$ = new Subject();
-
-    const subs = new Subscription();
-    const queue: QueueAction<TState>[] = [];
-    const typeQueues = new Set<BaseCommand>();
-    let transaction: Observable<Reducer<TState>> | undefined;
-    const self = this;
-
-    function dequeue() {
-      if (transaction) return;
-      if (!queue.length) return;
-
-      // Find first action that isn't blocked
-      const actionIndex = queue.findIndex(x => !typeQueues.has(x.type))
-      if (actionIndex < 0) return;
-      const action = queue.splice(actionIndex, 1)[0]!;
-
-      // Execute action
-      if (action.runInTransaction) runTransaction(action);
-      else if (action.queued) runQueued(action);
-      else run(action);
-    }
-
-    function applyReducer(reducer: Reducer<TState>) {
-      self.applyState(reducer(self._state$.value));
-    }
-
-    // Apply a simple action
-    function run(action: QueueAction<TState>) {
-      subs.add(action.run().subscribe(applyReducer));
-      dequeue();
-    }
-
-    // Apply an action in a transaction
-    function runTransaction(action: QueueAction<TState>) {
-
-      const snapshot = self._state$.value;
-      transaction = action.run();
-
-      function finish() {
-        transaction = undefined;
-        dequeue();
+      resetErrorState: (cmd: AsyncCommand<TState>, requestId: string|undefined) => {
+        this.resetErrorState(cmd, undefined);
+        if (requestId) this.resetErrorState(cmd, requestId)
       }
-
-      subs.add(transaction.subscribe({
-        next: applyReducer,
-        error: () => {
-          applyReducer(() => snapshot);
-          finish();
-        },
-        complete: finish,
-      }));
     }
 
-    // Apply a queued action
-    function runQueued(action: QueueAction<TState>) {
-      typeQueues.add(action.type);
-
-      function finish() {
-        typeQueues.delete(action.type);
-        dequeue();
-      }
-
-      subs.add(action.run().subscribe({
-        next: applyReducer,
-        error: finish,
-        complete: finish,
-      }));
-    }
-
-    subs.add(this.reducerQueue$.subscribe(action => {
-      queue.push(action);
-      dequeue();
-    }));
-
-    this.queueSub = subs;
+    this.onDestroy.onDestroy(() => {
+      this.disposed = true;
+      this.queue.clear();
+    });
   }
-
-  //</editor-fold>
 
   /**
    * Apply a new state to the store
@@ -235,26 +142,26 @@ export abstract class StoreService<TState extends Record<string, any>> implement
    * @private
    */
   private applyState(state: TState): boolean {
-    if (this._state$.value === state) return false;
-    this._state$.next(this.freeze(state));
+    if (untracked(this._state) === state) return false;
+    this._state.set(this.freeze(state));
     return true;
   }
 
   //<editor-fold desc="Get Load State">
   /**
-   * Get a subject with the loading state of a Command
+   * Get a signal with the loading state of a Command
    * @param cmd - The command
    * @param requestId - An optional RequestId
    * @private
    */
-  private getLoadState$(cmd: AsyncCommand<TState>, requestId: string|undefined) {
+  private getLoadState(cmd: AsyncCommand<TState>, requestId: string|undefined) {
     if (!requestId) {
-      let sub = this.loadStates.get(cmd);
-      if (sub) return sub;
+      let state = this.loadStates.get(cmd);
+      if (state) return state;
 
-      sub = new BehaviorSubject<number | undefined>(undefined);
-      this.loadStates.set(cmd, sub);
-      return sub;
+      state = signal<number | undefined>(undefined);
+      this.loadStates.set(cmd, state);
+      return state;
     }
 
     let map = this.requestLoadStates.get(cmd);
@@ -263,30 +170,30 @@ export abstract class StoreService<TState extends Record<string, any>> implement
       this.requestLoadStates.set(cmd, map);
     }
 
-    let sub = map.get(requestId);
-    if (sub) return sub;
+    let state = map.get(requestId);
+    if (state) return state;
 
-    sub = new BehaviorSubject<number | undefined>(undefined);
-    map.set(requestId, sub);
-    return sub;
+    state = signal<number | undefined>(undefined);
+    map.set(requestId, state);
+    return state;
   }
   //</editor-fold>
 
-  //<editor-fold desc="Get Fail State">
+  //<editor-fold desc="Get Error State">
   /**
-   * Get a subject with the failure state of a Command
+   * Get a signal with the error state of a Command
    * @param cmd - The command
    * @param requestId - An optional RequestId
    * @private
    */
-  private getErrorState$(cmd: AsyncCommand<TState>, requestId: string|undefined) {
+  private getErrorState(cmd: AsyncCommand<TState>, requestId: string|undefined) {
     if (!requestId) {
-      let sub = this.errorStates.get(cmd);
-      if (sub) return sub;
+      let state = this.errorStates.get(cmd);
+      if (state) return state;
 
-      sub = new BehaviorSubject<Error|undefined>(undefined);
-      this.errorStates.set(cmd, sub);
-      return sub;
+      state = signal<Error | undefined>(undefined);
+      this.errorStates.set(cmd, state);
+      return state;
     }
 
     let map = this.requestErrorStates.get(cmd);
@@ -295,30 +202,12 @@ export abstract class StoreService<TState extends Record<string, any>> implement
       this.requestErrorStates.set(cmd, map);
     }
 
-    let sub = map.get(requestId);
-    if (sub) return sub;
+    let state = map.get(requestId);
+    if (state) return state;
 
-    sub = new BehaviorSubject<Error|undefined>(undefined);
-    map.set(requestId, sub);
-    return sub;
-  }
-
-  private getFailureState$(cmd: AsyncCommand<TState>, requestId: string|undefined) {
-    return this.getErrorState$(cmd, requestId).pipe(map(x => x != null));
-  }
-
-  /**
-   * Get a subject with the failure state of a Command
-   * @param cmd - The command
-   * @param requestId - An optional RequestId
-   * @private
-   */
-  private getFailureStateOrDefault$(cmd: AsyncCommand<TState>, requestId: string|undefined) {
-    if (!requestId) {
-      return this.errorStates.get(cmd);
-    }
-
-    return this.requestErrorStates.get(cmd)?.get(requestId);
+    state = signal<Error | undefined>(undefined);
+    map.set(requestId, state);
+    return state;
   }
   //</editor-fold>
 
@@ -330,11 +219,11 @@ export abstract class StoreService<TState extends Record<string, any>> implement
    * @private
    */
   private startLoad(cmd: AsyncCommand<TState>, requestId: string|undefined) {
-    const sub = this.getLoadState$(cmd, requestId);
-    sub.next((sub.value ?? 0) + 1);
+    const state = this.getLoadState(cmd, requestId);
+    state.update(x => (x ?? 0) + 1);
 
     // Reset fail state
-    this.resetFailState(cmd, requestId);
+    this.resetErrorState(cmd, requestId);
   }
 
   /**
@@ -344,11 +233,11 @@ export abstract class StoreService<TState extends Record<string, any>> implement
    * @private
    */
   private endLoad(cmd: AsyncCommand<TState>, requestId: string|undefined) {
-    const sub = this.getLoadState$(cmd, requestId);
-    sub.next((sub.value ?? 1) - 1);
+    const state = this.getLoadState(cmd, requestId);
+    state.update(x => (x ?? 1) - 1);
 
     // Reset fail state
-    this.resetFailState(cmd, requestId);
+    this.resetErrorState(cmd, requestId);
   }
 
   /**
@@ -360,22 +249,27 @@ export abstract class StoreService<TState extends Record<string, any>> implement
    */
   private failLoad(cmd: AsyncCommand<TState>, error: Error, requestId: string|undefined) {
 
-    this.getErrorState$(cmd, requestId).next(error);
+    this.getErrorState(cmd, requestId).set(error);
 
-    const sub = this.getLoadState$(cmd, requestId);
-    const val = sub.value ?? 1;
+    const state = this.getLoadState(cmd, requestId);
+    const val = untracked(state) ?? 1;
 
     // If initial load fails, set command as unloaded
     if (cmd.initialLoad && val === 1) {
-      sub.next(undefined);
+      state.set(undefined);
       return;
     }
 
-    sub.next(val - 1);
+    state.set(val - 1);
   }
 
-  private resetFailState(cmd: AsyncCommand<TState>, requestId: string|undefined) {
-    this.getFailureStateOrDefault$(cmd, requestId)?.next(undefined);
+  private resetErrorState(cmd: AsyncCommand<TState>, requestId: string|undefined) {
+    if (requestId) {
+      this.requestErrorStates.get(cmd)?.get(requestId)?.set(undefined);
+      return;
+    }
+
+    this.errorStates.get(cmd)?.set(undefined);
   }
   //</editor-fold>
 
@@ -403,31 +297,12 @@ export abstract class StoreService<TState extends Record<string, any>> implement
    * Reset the entire store
    */
   reset() {
-    if (this.disposed) throw Error('The store has been disposed');
+    this.queue.clear();
 
-    //Restart the queue
-    this.startQueue();
-
-    this._state$.next(this.freeze(deepCopy(this.initialState)));
-    this.loadStates.forEach(x => x.next(undefined));
-    this.requestLoadStates.forEach(cmd => cmd.forEach(x => x.next(undefined)));
+    this._state.set(this.freeze(deepCopy(this.initialState)));
+    this.loadStates.forEach(x => x.set(undefined));
+    this.requestLoadStates.forEach(cmd => cmd.forEach(x => x.set(undefined)));
   }
-
-  private _disposed$ = new BehaviorSubject(false);
-  readonly disposed$ = this._disposed$.asObservable();
-  get disposed() {return this._disposed$.value}
-
-  /**
-   * Dispose Store
-   */
-  dispose() {
-    if (this.disposed) return;
-    this._disposed$.next(true);
-    this._disposed$.complete();
-    this.queueSub?.unsubscribe();
-    this._state$.complete();
-  }
-
 
   /**
    * Create a command and supply a client for the command action
@@ -444,114 +319,6 @@ export abstract class StoreService<TState extends Record<string, any>> implement
     return client
       ? new StoreClientCommandConfig(this.context, client)
       : new StoreCommandConfig(this.context);
-  }
-
-  /**
-   * Create a selector using RXJS
-   * @param pipe - The observable modification for the selector
-   * @protected
-   */
-  protected selector<TSelect>(pipe: (state$: Observable<TState>) => Observable<TSelect>): Observable<TSelect>
-  /**
-   * Create a selector from an existing observable
-   * @protected
-   * @param observable$
-   */
-  protected selector<TSelect>(observable$: Observable<TSelect>): Observable<TSelect>
-  protected selector<TSelect>(pipe: ((state$: Observable<TState>) => Observable<TSelect>)|Observable<TSelect>): Observable<TSelect> {
-
-    if (isObservable(pipe)) {
-      return pipe.pipe(
-        distinctUntilChanged(),
-        cache()
-      );
-    }
-
-    return pipe(this.state$).pipe(
-      distinctUntilChanged(),
-      cache()
-    );
-  }
-
-  /**
-   * Define a selector factory to reuse parameterized selectors
-   * @param builder
-   * @protected
-   */
-  protected selectorFactory<TPayload, TSelect>(
-    builder: (payload: TPayload) => Observable<TSelect>
-  ): (payload: TPayload) => Observable<TSelect>
-  /**
-   * Define a selector factory to reuse parameterized selectors
-   * @param builder
-   * @param getId
-   * @protected
-   */
-  protected selectorFactory<TPayload, TSelect, TId>(
-    builder: (payload: TPayload) => Observable<TSelect>,
-    getId: (payload: TPayload) => TId
-  ): (payload: TPayload) => Observable<TSelect>
-  protected selectorFactory<TPayload, TSelect, TId>(
-    builder: (payload: TPayload) => Observable<TSelect>,
-    getId?: (payload: TPayload) => TId
-  ): (payload: TPayload) => Observable<TSelect> {
-
-    getId ??= (x: any) => x as TId;
-    const lookup = new Map<TId, Observable<TSelect>>();
-
-    // Method that loads / generates a selector on demand
-    const getSelector = (payload: TPayload) => {
-      const id = getId!(payload);
-      let selector = lookup.get(id);
-
-      if (!selector) {
-        selector = builder(payload).pipe(
-          distinctUntilChanged(),
-          // Remove the observable when it's no longer used
-          tap({finalize: () => lookup.delete(id)}),
-          // Multicast the selector
-          cache()
-        );
-        lookup.set(id, selector);
-      }
-
-      return selector;
-    }
-
-    return payload => new Observable<TSelect>(subscriber => {
-      // Get/Create selector on subscribe
-      return getSelector(payload).subscribe(subscriber);
-    });
-  }
-
-  /**
-   * Create a basic selector
-   * @protected
-   * @param selector - A method to map the state to the desired shape
-   */
-  protected select<TSelect>(selector: (state: TState) => TSelect) {
-    return this.selector(state$ => state$.pipe(map(selector)))
-  }
-
-  /**
-   * Create a basic with a nullability filter
-   * @protected
-   * @param selector - A method to map the state to the desired shape
-   * @param modify - Modify the non-nullable data
-   */
-  protected selectNotNull<TSelect, TMod>(selector: (state: TState) => TSelect, modify: (data: NonNullable<TSelect>) => TMod): Observable<TMod>;
-  /**
-   * Create a basic with a nullability filter
-   * @protected
-   * @param selector - A method to map the state to the desired shape
-   */
-  protected selectNotNull<TSelect>(selector: (state: TState) => TSelect): Observable<NonNullable<TSelect>>;
-  protected selectNotNull<TSelect, TMod>(selector: (state: TState) => TSelect, modify?: (data: NonNullable<TSelect>) => TMod): Observable<NonNullable<TSelect>|TMod> {
-    return this.selector<NonNullable<TSelect>|TMod>(state$ => {
-      const base$ = state$.pipe(map(selector), filter((x) : x is NonNullable<TSelect> => x != null));
-      if (!modify) return base$;
-      return base$.pipe(map(modify));
-    });
   }
 }
 

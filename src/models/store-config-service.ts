@@ -1,12 +1,12 @@
 /**
  * An injectable providing configuration options for Stores
  */
-export interface IStoreConfigService {
+export abstract class IStoreConfigService {
 
-  displaySuccess(message: string): void;
-  displayError(message: string|undefined, error: Error): void;
-  readonly isProduction: boolean;
-  readonly disableCache: boolean;
+  abstract displaySuccess(message: string): void;
+  abstract displayError(message: string|undefined, error: Error): void;
+  abstract readonly isProduction: boolean;
+  abstract readonly disableCache: boolean;
 
   /**
    * A method to filter out critical errors.
@@ -14,7 +14,7 @@ export interface IStoreConfigService {
    * <p>INFO: An example could be to filter our 401 errors for API calls</p>
    * @param error
    */
-  errorIsCritical(error: any): boolean;
+  abstract errorIsCritical(error: any): boolean;
 
-  logActionRetry(command: string, attempt: number, nextDelay: number): void;
+  abstract logActionRetry(command: string, attempt: number, nextDelay: number): void;
 }
