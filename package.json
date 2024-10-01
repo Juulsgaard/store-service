@@ -1,6 +1,6 @@
 {
-  "name": "@juulsgaard/store-service",
-  "version": "1.10.0",
+  "name": "@juulsgaard/ngx-store-service",
+  "version": "18.0.0",
   "description": "A state management system for Javascript",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
