@@ -1,12 +1,14 @@
 import {Reducer} from "./store-types";
-import {EMPTY, isObservable, Observable, of, tap} from "rxjs";
+import {EMPTY, Observable} from "rxjs";
 import {BaseCommand} from "./base-commands";
 
 export class QueueAction<TState> {
 
+  private hasRun = false;
+
   constructor(
     public type: BaseCommand,
-    private action: () => Reducer<TState>|Observable<Reducer<TState>>|void,
+    private execution$: Observable<Reducer<TState>>,
     private onCancel?: () => void,
     public queued: boolean = false,
     public runInTransaction = false,
@@ -21,13 +23,13 @@ export class QueueAction<TState> {
    * Observable can be empty
    */
   run(): Observable<Reducer<TState>> {
-    const result = this.action();
-    if (!result) return EMPTY;
 
-    if (isObservable(result)) {
-      return result.pipe(tap({unsubscribe: () => this.onCancel?.()}));
+    if (this.hasRun) {
+      console.error('Command execution instances can only be used once');
+      return EMPTY;
     }
 
-    return of(result);
+    this.hasRun = true;
+    return this.execution$;
   }
 }

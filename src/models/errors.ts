@@ -23,7 +23,7 @@ export class ActionCancelledError<TPayload> extends Error {
 }
 
 export class CancelledError extends Error {
-  constructor() {
-    super('Cancelled');
+  constructor(message?: string) {
+    super(message ?? 'Cancelled');
   }
 }

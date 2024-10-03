@@ -1,9 +1,7 @@
 import {StoreServiceContext} from "../configs/command-config";
-import {map} from "rxjs/operators";
-import {distinctUntilChanged, Observable} from "rxjs";
-import {ActionCommand, DeferredCommand, PlainCommand} from "../commands";
 import {IdMap, parseIdMap} from "../lib/id-map";
-import {ILoadingState} from "@juulsgaard/rxjs-tools";
+import {IRequestState, IValueRequestState} from "../utils/request-state";
+import {computed, Signal} from "@angular/core";
 
 export abstract class BaseCommand {
 
@@ -18,73 +16,41 @@ export abstract class BaseCommand {
  */
 export abstract class StoreCommand<TState> extends BaseCommand {
 
-  protected context: StoreServiceContext<TState>
+  abstract get initialLoad(): boolean;
+
+  protected readonly context: StoreServiceContext<TState>;
+
+  /** Indicates if any command of this type are currently executing */
+  loading: Signal<boolean>;
+  /** Indicates if any command of this type have been started */
+  loaded: Signal<boolean>;
+  /** Provides the error from the most recently failed request when in an error state */
+  error: Signal<Error|undefined>;
+  /** Indicates if any command of this type has recently failed */
+  failed: Signal<boolean>;
 
   protected constructor(context: StoreServiceContext<TState>) {
     super();
 
     this.context = context;
+
+    const loadState = context.getLoadState(this, undefined);
+
+    this.loading = computed(() => {
+      const state = loadState();
+      return state !== undefined && state > 0;
+    });
+
+    this.loaded = computed(() => loadState() !== undefined);
+
+    this.error = context.getErrorState(this, undefined);
+    this.failed = computed(() => this.error() !== undefined);
   }
 
-  /**
-   * Name of the Command
-   */
+  /** Name of the Command */
   get name() {
     return this.context.getCommandName(this)
   };
-}
-
-export interface PayloadCommand<TPayload> {
-  /**
-   * Emit the command with no status returned
-   * @param payload
-   */
-  emit(payload: TPayload): void;
-}
-
-export abstract class AsyncCommand<TState> extends StoreCommand<TState> {
-
-  abstract get initialLoad(): boolean;
-
-  /**
-   * Indicates if any command of this type are currently executing
-   */
-  loading$: Observable<boolean>;
-  /**
-   * Indicates if any command of this type have been started
-   */
-  loaded$: Observable<boolean>;
-  /**
-   * Indicates if any command of this type has recently failed
-   */
-  failed$: Observable<boolean>;
-  /**
-   * Provides the error from the most recently failed request when in an error state
-   */
-  error$: Observable<Error|undefined>;
-
-
-  protected constructor(context: StoreServiceContext<TState>) {
-    super(context);
-
-    this.loading$ = context.getLoadState$(this, undefined).pipe(
-      map(x => !!x && x > 0),
-      distinctUntilChanged()
-    );
-
-    this.loaded$ = context.getLoadState$(this, undefined).pipe(
-      map(x => x !== undefined),
-      distinctUntilChanged()
-    );
-
-    this.failed$ = context.getFailureState$(this, undefined).pipe(
-      distinctUntilChanged()
-    );
-
-    this.error$ = context.getErrorState$(this, undefined).pipe(
-      distinctUntilChanged()
-    );
-  }
 
   /**
    * Resets the failure state of the command
@@ -95,43 +61,75 @@ export abstract class AsyncCommand<TState> extends StoreCommand<TState> {
   }
 }
 
-export abstract class AsyncPayloadCommand<TState, TPayload> extends AsyncCommand<TState> implements PayloadCommand<TPayload> {
+export abstract class PayloadCommand<TState, TPayload> extends StoreCommand<TState> {
 
   protected getRequestId?: (payload: TPayload) => string;
 
-  protected constructor(context: StoreServiceContext<TState>, requestId?: IdMap<TPayload>) {
+  protected constructor(context: StoreServiceContext<TState>, requestId: IdMap<TPayload>|undefined) {
     super(context);
+
     this.getRequestId = requestId && parseIdMap(requestId);
   }
 
-  loadingById$(payload: TPayload) {
-    if (!this.getRequestId) return this.loading$;
-    return this.context.getLoadState$(this, this.getRequestId(payload)).pipe(
-      map(x => !!x && x > 0),
-      distinctUntilChanged()
-    )
+  /**
+   * Emit the command
+   * @param payload
+   */
+  abstract emit(payload: TPayload): IRequestState;
+
+  /**
+   * Returns true if the command can be emitted
+   * @param payload
+   */
+  abstract canEmit(payload: TPayload): boolean;
+
+  /**
+   * Indicates if any command with a matching type and payload are currently executing
+   * @param payload - The payload used to recognise the request
+   */
+  loadingById(payload: TPayload): Signal<boolean> {
+    if (!this.getRequestId) return this.loading;
+
+    const requestId = this.getRequestId(payload);
+    const loadState = this.context.getLoadState(this, requestId);
+    return computed(() => {
+      const state = loadState();
+      return state !== undefined && state > 0;
+    });
   }
 
-  loadedById$(payload: TPayload) {
-    if (!this.getRequestId) return this.loaded$;
-    return this.context.getLoadState$(this, this.getRequestId(payload)).pipe(
-      map(x => x !== undefined),
-      distinctUntilChanged()
-    )
+  /**
+   * Indicates if any command with a matching type and payload have been started
+   * @param payload - The payload used to recognise the request
+   */
+  loadedById(payload: TPayload): Signal<boolean> {
+    if (!this.getRequestId) return this.loaded;
+
+    const requestId = this.getRequestId(payload);
+    const loadState = this.context.getLoadState(this, requestId);
+    return computed(() => loadState() !== undefined);
   }
 
-  failedById$(payload: TPayload) {
-    if (!this.getRequestId) return this.failed$;
-    return this.context.getFailureState$(this, this.getRequestId(payload)).pipe(
-      distinctUntilChanged()
-    )
+  /**
+   * Provides the error from the most recently failed request with a matching type and payload when in an error state
+   * @param payload - The payload used to recognise the request
+   */
+  errorById(payload: TPayload): Signal<Error|undefined> {
+    if (!this.getRequestId) return this.error;
+
+    const requestId = this.getRequestId(payload);
+    return this.context.getErrorState(this, requestId);
   }
 
-  errorById$(payload: TPayload) {
-    if (!this.getRequestId) return this.error$;
-    return this.context.getErrorState$(this, this.getRequestId(payload)).pipe(
-      distinctUntilChanged()
-    )
+  /**
+   * Provides the error from the most recently failed request with a matching type and payload when in an error state
+   * @param payload - The payload used to recognise the request
+   */
+  failedById(payload: TPayload): Signal<boolean> {
+    if (!this.getRequestId) return this.failed;
+
+    const error = this.errorById(payload);
+    return computed(() => error() !== undefined);
   }
 
   /**
@@ -146,24 +144,13 @@ export abstract class AsyncPayloadCommand<TState, TPayload> extends AsyncCommand
     this.context.resetErrorState(this, this.getRequestId(payload));
   }
 
-  /**
-   * Dispatch the command and return a LoadingState to monitor command progress
-   * @param payload - The command payload
-   */
-  abstract observe(payload: TPayload): ILoadingState;
-
-  /**
-   * Dispatch the command and return a Promise to monitor command progress
-   * @param payload - The command payload
-   */
-  abstract emitAsync(payload: TPayload): Promise<unknown>;
-
-  /**
-   * Emit the command with no status returned
-   * @param payload - The command payload
-   */
-  abstract emit(payload: TPayload): void;
 }
 
-export type ActionCommandUnion<TState, TPayload, TData> = ActionCommand<TState, TPayload, TData> | DeferredCommand<TState, TPayload, TData>;
-export type StoreCommandUnion<TState, TPayload, TData = any> = PlainCommand<TState, TPayload> | ActionCommandUnion<TState, TPayload, TData>;
+export abstract class AsyncCommand<TState, TPayload, TResult> extends PayloadCommand<TState, TPayload> {
+
+  abstract override emit(payload: TPayload): IValueRequestState<TResult>;
+
+}
+
+// export type ActionCommandUnion<TState, TPayload, TData> = ActionCommand<TState, TPayload, TData> | DeferredCommand<TState, TPayload, TData>;
+// export type StoreCommandUnion<TState, TPayload, TData = any> = PlainCommand<TState, TPayload> | ActionCommandUnion<TState, TPayload, TData>;

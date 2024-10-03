@@ -1,4 +1,4 @@
-import {Subscription, Unsubscribable} from "rxjs";
+import {Observable, Subscription} from "rxjs";
 import {BaseCommand, QueueAction, Reducer} from "../models";
 import {Signal, untracked} from "@angular/core";
 
@@ -6,7 +6,7 @@ export class ActionQueue<T> {
 
   private readonly queue: QueueAction<T>[] = [];
   private readonly cmdLocks = new Set<BaseCommand>();
-  private transaction?: Unsubscribable;
+  private transaction?: Observable<Reducer<T>>;
   private readonly subscriptions = new Subscription();
   private executing: {interrupt: boolean}|undefined = undefined;
 
@@ -65,11 +65,9 @@ export class ActionQueue<T> {
   private runTransaction(action: QueueAction<T>) {
 
     const snapshot = untracked(this.state);
-    let finished = false;
 
     const finish = () => {
       this.transaction = undefined;
-      finished = true;
       this.execute();
     }
 
@@ -78,15 +76,15 @@ export class ActionQueue<T> {
       finish();
     }
 
-    const sub = this.transaction = action.run().subscribe({
+    this.transaction = action.run();
+
+    const sub = this.transaction.subscribe({
       next: x => this.applyReducer(x),
       error: rollBack,
       complete: finish,
     });
 
     this.subscriptions.add(sub);
-
-    if (!finished) this.transaction = sub;
   }
 
   /**

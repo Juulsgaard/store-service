@@ -4,7 +4,7 @@ import {DeferredCommandObjectConfig} from "./deferred-command-config";
 import {rootReducerScope} from "../models/reducer-scope";
 import {PlainCommandObjectConfig} from "./plain-command-config";
 import {QueueAction} from "../models/queue-action";
-import {AsyncCommand, StoreCommand} from "../models/base-commands";
+import {StoreCommand} from "../models/base-commands";
 import {SimpleObject} from "@juulsgaard/ts-tools";
 import {Signal} from "@angular/core";
 
@@ -20,13 +20,13 @@ export interface StoreServiceContext<TState> extends BaseStoreServiceContext<TSt
 
   logActionRetry(command: string, attempt: number, nextDelay: number): void;
 
-  getLoadState(cmd: AsyncCommand<TState>, requestId: string|undefined): Signal<number | undefined>;
-  getErrorState(cmd: AsyncCommand<TState>, requestId: string|undefined): Signal<Error|undefined>;
+  getLoadState(cmd: StoreCommand<TState>, requestId: string|undefined): Signal<number | undefined>;
+  getErrorState(cmd: StoreCommand<TState>, requestId: string|undefined): Signal<Error|undefined>;
 
-  startLoad(cmd: AsyncCommand<TState>, requestId: string|undefined): void;
-  endLoad(cmd: AsyncCommand<TState>, requestId: string|undefined): void;
-  failLoad(cmd: AsyncCommand<TState>, error: Error, requestId: string|undefined): void;
-  resetErrorState(cmd: AsyncCommand<TState>, requestId: string|undefined): void;
+  startLoad(cmd: StoreCommand<TState>, requestId: string|undefined): void;
+  endLoad(cmd: StoreCommand<TState>, requestId: string|undefined): void;
+  failLoad(cmd: StoreCommand<TState>, error: Error, requestId: string|undefined): void;
+  resetErrorState(cmd: StoreCommand<TState>, requestId: string|undefined): void;
 
   errorIsCritical(error: any): boolean;
 }
