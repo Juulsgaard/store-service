@@ -117,11 +117,11 @@ test('Load', async () => {
 
   await sleep(1000);
   store.reset();
-  expect(store.state.values.length).toEqual(0);
+  expect(store.state().values.length).toEqual(0);
 
-  await store.load.emitAsync();
+  await store.load.emit();
 
-  expect(store.state.values.length).toEqual(2);
+  expect(store.state().values.length).toEqual(2);
 
   store.dispose();
 })

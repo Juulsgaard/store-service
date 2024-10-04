@@ -7,7 +7,7 @@ import {IdMap} from "../lib/id-map";
 import {untracked} from "@angular/core";
 import {IValueRequestState, requestState} from "../utils/request-state";
 import {parseError} from "@juulsgaard/ts-tools";
-import {ActionCancelledError, AsyncCommand, QueueAction} from "../models";
+import {ActionCancelledError, PayloadCommand, QueueAction} from "../models";
 
 
 /**
@@ -34,7 +34,7 @@ export interface ActionCommandOptions<TPayload, TData> {
 /**
  * A command that triggers an action, and then applies a reducer
  */
-export class ActionCommand<TState, TPayload, TData> extends AsyncCommand<TState, TPayload, TData> {
+export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TState, TPayload, TData> {
 
   readonly isSync = false;
 
@@ -95,17 +95,8 @@ export class ActionCommand<TState, TPayload, TData> extends AsyncCommand<TState,
 
     this.context.startLoad(this, requestId);
 
-    let cancelled = false;
     let state: IValueRequestState<TData> | undefined = undefined;
-
-    // Cancel current / pending request
-    const onCancel = () => {
-      if (cancelled) return;
-      cancelled = true;
-      state?.cancel();
-    }
-
-    const output = requestState.writable<TData>(onCancel);
+    const output = requestState.writable<TData>(() => state?.cancel());
 
     const action = this.options.retries
       ? retryAction(
@@ -126,7 +117,6 @@ export class ActionCommand<TState, TPayload, TData> extends AsyncCommand<TState,
         this.context.failLoad(this, error, requestId);
 
         subscriber.error(error);
-        subscriber.complete();
 
         output.setError(error);
       }
@@ -147,7 +137,7 @@ export class ActionCommand<TState, TPayload, TData> extends AsyncCommand<TState,
         output.setValue(value);
       }
 
-      if (cancelled) {
+      if (untracked(output.cancelled)) {
         const error = new ActionCancelledError(this, "Action cancelled before execution", payload);
         onError(error);
         return;

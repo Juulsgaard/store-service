@@ -1,10 +1,11 @@
 import {logFailedAction, logSuccessfulAction} from "../models/logging";
-import {EMPTY, startWith, switchMap, tap} from "rxjs";
+import {Observable, shareReplay} from "rxjs";
 import {CommandAction, Reducer} from "../models/store-types";
 import {StoreServiceContext} from "../configs/command-config";
-import {QueueAction} from "../models/queue-action";
-import {AsyncPayloadCommand} from "../models/base-commands";
-import {Loading, LoadingState} from '@juulsgaard/rxjs-tools';
+import {ActionCancelledError, PayloadCommand, QueueAction} from "../models";
+import {IValueRequestState, requestState} from "../utils/request-state";
+import {parseError} from "@juulsgaard/ts-tools";
+import {untracked} from "@angular/core";
 
 /**
  * The options for a Deferred Command
@@ -24,7 +25,7 @@ export interface DeferredCommandOptions<TPayload, TData> {
  * If the action fails, the command will roll back the store
  * This command type will lock the store using a transaction while active
  */
-export class DeferredCommand<TState, TPayload, TData>  extends AsyncPayloadCommand<TState, TPayload> {
+export class DeferredCommand<TState, TPayload, TData> extends PayloadCommand<TState, TPayload, TData> {
 
   readonly isSync = true;
 
@@ -37,55 +38,97 @@ export class DeferredCommand<TState, TPayload, TData>  extends AsyncPayloadComma
     private readonly options: DeferredCommandOptions<TPayload, TData>,
     private readonly reducer: (state: TState, data: TPayload) => TState
   ) {
-    super(context);
+    super(context, undefined);
+  }
+
+  override canEmit(_payload: TPayload): boolean {
+    return true;
   }
 
   /**
-   * Dispatch the command and return a LoadingState to monitor command progress
+   * Dispatch the command and return a RequestState to monitor request progress
    * @param payload - The command payload
    */
-  observe(payload: TPayload): LoadingState<TData> {
+  emit(payload: TPayload): IValueRequestState<TData> {
 
-    this.context.startLoad(this, undefined);
+    const requestId = undefined;
 
-    // Set up a delayed loading state
-    const state = Loading.Delayed(() => this.options.action(payload))
+    this.context.startLoad(this, requestId);
 
-    // Define the execution for the Command
-    const execute = () => {
+    let state: IValueRequestState<TData> | undefined = undefined;
+    const output = requestState.writable<TData>(() => state?.cancel());
+
+    const action = () => this.options.action(payload);
+
+    //<editor-fold desc="Execution logic">
+    const execute$ = new Observable<Reducer<TState>>(subscriber => {
+
+      // handle failed request
+      const onError = (error: Error) => {
+
+        this.logFailure(payload, error, startedAt);
+        this.context.failLoad(this, error, requestId);
+
+        subscriber.error(error);
+
+        output.setError(error);
+      }
+
+      // Handle successful request
+      const onValue = (value: TData) => {
+
+        this.logSuccess(payload, value, startedAt);
+
+        this.context.endLoad(this, requestId);
+
+        subscriber.complete();
+
+        this.options.afterEffect?.(value, payload)
+        output.setValue(value);
+      }
+
+      if (untracked(output.cancelled)) {
+        const error = new ActionCancelledError(this, "Action cancelled before execution", payload);
+        onError(error);
+        return;
+      }
+
       const startedAt = Date.now();
 
-      // Trigger action, send reducer and complete when API is done
-      return state.trigger$.pipe(
-        // Log success / error
-        tap({
-          next: result => this.onSuccess(payload, result, startedAt),
-          error: error => this.onFailure(payload, error, startedAt)
-        }),
-        switchMap(() => EMPTY),
-        // Start with reducer
-        startWith<Reducer<TState>>(state => this.reducer(state, payload))
-      )
-    };
+      try {
+        const result = action();
 
-    // Send Queue Action
-    this.context.applyCommand(new QueueAction<TState>(
+        const reducer = (storeState: TState) => this.reducer(storeState, payload);
+        subscriber.next(reducer);
+
+        state = requestState(result);
+        state.then(onValue, onError);
+
+        return () => {
+          state?.cancel(() => new ActionCancelledError(this, "Action cancelled during execution", payload));
+        };
+
+      } catch (error: unknown) {
+        onError(parseError(error));
+      }
+
+      return;
+
+    }).pipe(shareReplay());
+    //</editor-fold>
+
+    const queueAction = new QueueAction<TState>(
       this,
-      execute,
-      () => state.cancel(),
+      execute$,
+      () => output.cancel(),
       false,
       true
-    ));
+    );
 
-    state
-      .then(data => {
-        this.context.endLoad(this, undefined);
-        // Use timeout to ensure effect runs after reducer
-        setTimeout(() => this.options.afterEffect?.(data, payload));
-      })
-      .catch(e => this.context.failLoad(this, e, undefined));
+    // Send Queue Action
+    this.context.applyCommand(queueAction);
 
-    return state;
+    return output.asReadonly();
   };
 
   /**
@@ -95,7 +138,7 @@ export class DeferredCommand<TState, TPayload, TData>  extends AsyncPayloadComma
    * @param startedAt
    * @private
    */
-  private onSuccess(payload: TPayload, result: TData, startedAt?: number) {
+  private logSuccess(payload: TPayload, result: TData, startedAt?: number) {
 
     // Display success message
     if (this.options.successMessage) {
@@ -115,7 +158,7 @@ export class DeferredCommand<TState, TPayload, TData>  extends AsyncPayloadComma
    * @param startedAt
    * @private
    */
-  private onFailure(payload: TPayload, error: Error, startedAt?: number) {
+  private logFailure(payload: TPayload, error: Error, startedAt?: number) {
 
     // Display error message
     if (this.options.showError) {
@@ -124,20 +167,4 @@ export class DeferredCommand<TState, TPayload, TData>  extends AsyncPayloadComma
 
     if (!this.context.isProduction) logFailedAction(this.name, startedAt, payload, error);
   }
-
-  /**
-   * Emit the command with no status returned
-   * @param payload
-   */
-  emit(payload: TPayload) {
-    this.observe(payload);
-  };
-
-  /**
-   * Emit the command with a Promise status
-   * @param payload
-   */
-  emitAsync(payload: TPayload): Promise<TData> {
-    return this.observe(payload).resultAsync;
-  };
 }

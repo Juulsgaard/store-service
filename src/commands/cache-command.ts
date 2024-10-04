@@ -1,14 +1,12 @@
-import {combineLatest, distinctUntilChanged, EMPTY, Observable, of, Subject, switchMap, tap} from "rxjs";
+import {Observable, shareReplay} from "rxjs";
 import {logActionInformation, logFailedAction, logSuccessfulAction} from "../models/logging";
-import {CommandAction} from "../models/store-types";
-import {ActionCancelledError, CacheCommandError} from "../models/errors";
-import {map} from "rxjs/operators";
+import {CommandAction, Reducer} from "../models/store-types";
+import {ActionCancelledError, CacheCommandError, PayloadCommand, QueueAction} from "../models";
 import {StoreServiceContext} from "../configs/command-config";
-import {QueueAction} from "../models/queue-action";
-import {PlainCommand} from "./plain-command";
-import {AsyncCommand, AsyncPayloadCommand, StoreCommandUnion} from "../models/base-commands";
-import {IdMap, parseIdMap} from "../lib/id-map";
-import {IValueLoadingState, Loading, LoadingState} from "@juulsgaard/rxjs-tools";
+import {IdMap} from "../lib/id-map";
+import {computed, Signal, untracked} from "@angular/core";
+import {IValueRequestState, requestState} from "../utils/request-state";
+import {parseError} from "@juulsgaard/ts-tools";
 
 
 /**
@@ -45,377 +43,345 @@ export interface CacheLoadOptions {
 /**
  * A command that loads data from a cache, and then applies a reducer
  */
-export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends AsyncCommand<TState> {
+export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends PayloadCommand<TState, TPayload, TData | TXData> {
 
   readonly isSync = false;
 
-  protected getRequestId?: (payload: TPayload) => string;
-
   get initialLoad() {
-    return this.options.initialLoad
+    return this.options.initialLoad;
   }
 
-  cacheLoading$: Observable<boolean>;
-  cacheLoaded$: Observable<boolean>;
-  cacheFailed$: Observable<boolean>;
+  readonly anyLoading: Signal<boolean>;
+  readonly anyLoaded: Signal<boolean>;
+  readonly anyError: Signal<Error|undefined>;
+  readonly anyFailed: Signal<boolean>;
 
   constructor(
     context: StoreServiceContext<TState>,
     private readonly options: CacheCommandOptions<TPayload, TData>,
     private readonly reducer: (state: TState, data: TData, payload: TPayload) => TState,
-    private fallbackCommand?: StoreCommandUnion<TState, TXPayload, TXData>,
+    readonly fallback?: PayloadCommand<TState, TXPayload, TXData>,
     private concurrentFallback = false
   ) {
-    super(context);
-    this.getRequestId = this.options.requestId && parseIdMap(this.options.requestId);
+    super(context, options.requestId);
 
-    this.cacheLoading$ = this.loading$;
-    this.cacheLoaded$ = this.loaded$;
-    this.cacheFailed$ = this.failed$;
-
-    if (fallbackCommand instanceof AsyncCommand) {
-      this.loading$ = combineLatest([this.cacheLoading$, fallbackCommand.loading$]).pipe(
-        map(([x, y]) => x || y),
-        distinctUntilChanged()
-      );
-
-      this.loaded$ = combineLatest([this.cacheLoaded$, fallbackCommand.loaded$]).pipe(
-        map(([x, y]) => x || y),
-        distinctUntilChanged()
-      );
-
-      this.failed$ = combineLatest([this.cacheFailed$, fallbackCommand.failed$]).pipe(
-        map(([x, y]) => x || y),
-        distinctUntilChanged()
-      );
-    }
+    this.anyLoading = !fallback ? this.loading : computed(() => this.loading() || fallback.loading());
+    this.anyLoaded = !fallback ? this.loaded : computed(() => this.loaded() || fallback.loaded());
+    this.anyError = !fallback ? this.error : computed(() => this.error() || fallback.error());
+    this.anyFailed = !fallback ? this.failed : computed(() => this.failed() || fallback.failed());
   }
 
-  //<editor-fold desc="Cache Request Loading State">
-  cacheLoadingById$(payload: TPayload) {
-    if (!this.getRequestId) return this.loading$;
-    return this.context.getLoadState$(this, this.getRequestId(payload)).pipe(
-      map(x => !!x && x > 0),
-      distinctUntilChanged()
-    )
+  //<editor-fold desc="Request Load State">
+  anyLoadingById(payload: TPayload&TXPayload): Signal<boolean>;
+  anyLoadingById(payload: TPayload, fallbackPayload: TXPayload): Signal<boolean>;
+  anyLoadingById(payload: TPayload | (TPayload&TXPayload), fallbackPayload?: TXPayload): Signal<boolean> {
+    const fallback = this.fallback;
+
+    const cmdVal = this.loadingById(payload);
+    if (!fallback) return cmdVal;
+
+    const fallbackVal = fallback.loadingById(fallbackPayload ?? payload as TXPayload);
+    return computed(() => cmdVal() || fallbackVal());
   }
 
-  cacheLoadedById$(payload: TPayload) {
-    if (!this.getRequestId) return this.loaded$;
-    return this.context.getLoadState$(this, this.getRequestId(payload)).pipe(
-      map(x => x !== undefined),
-      distinctUntilChanged()
-    )
+  anyLoadedById(payload: TPayload&TXPayload): Signal<boolean>;
+  anyLoadedById(payload: TPayload, fallbackPayload: TXPayload): Signal<boolean>;
+  anyLoadedById(payload: TPayload | (TPayload&TXPayload), fallbackPayload?: TXPayload): Signal<boolean> {
+    const fallback = this.fallback;
+
+    const cmdVal = this.loadedById(payload);
+    if (!fallback) return cmdVal;
+
+    const fallbackVal = fallback.loadedById(fallbackPayload ?? payload as TXPayload);
+    return computed(() => cmdVal() || fallbackVal());
   }
 
-  cacheFailedById$(payload: TPayload) {
-    if (!this.getRequestId) return this.failed$;
-    return this.context.getFailureState$(this, this.getRequestId(payload)).pipe(
-      distinctUntilChanged()
-    )
+  anyErrorById(payload: TPayload&TXPayload): Signal<Error | undefined>;
+  anyErrorById(payload: TPayload, fallbackPayload: TXPayload): Signal<Error | undefined>;
+  anyErrorById(payload: TPayload | (TPayload&TXPayload), fallbackPayload?: TXPayload): Signal<Error | undefined> {
+    const fallback = this.fallback;
+
+    const cmdVal = this.errorById(payload);
+    if (!fallback) return cmdVal;
+
+    const fallbackVal = fallback.errorById(fallbackPayload ?? payload as TXPayload);
+    return computed(() => cmdVal() || fallbackVal());
   }
 
-  cacheErrorById$(payload: TPayload) {
-    if (!this.getRequestId) return this.error$;
-    return this.context.getErrorState$(this, this.getRequestId(payload)).pipe(
-      distinctUntilChanged()
-    )
+  anyFailedById(payload: TPayload&TXPayload): Signal<boolean>;
+  anyFailedById(payload: TPayload, fallbackPayload: TXPayload): Signal<boolean>;
+  anyFailedById(payload: TPayload | (TPayload&TXPayload), fallbackPayload?: TXPayload): Signal<boolean> {
+    const fallback = this.fallback;
+
+    const cmdVal = this.failedById(payload);
+    if (!fallback) return cmdVal;
+
+    const fallbackVal = fallback.failedById(fallbackPayload ?? payload as TXPayload);
+    return computed(() => cmdVal() || fallbackVal());
   }
-
-  //</editor-fold>
-
-  //<editor-fold desc="Combined Request Loading State">
-
-  loadingById$(payload: TPayload & TXPayload): Observable<boolean>;
-  loadingById$(cachePayload: TPayload, commandPayload: TXPayload): Observable<boolean>;
-  loadingById$(cachePayload: TPayload | (TPayload & TXPayload), commandPayload?: TXPayload) {
-    if (!this.getRequestId) return this.loading$;
-    if (!this.fallbackCommand || !('loadingById$' in this.fallbackCommand)) return this.cacheLoadingById$(cachePayload);
-    const cmdPayload = commandPayload ?? cachePayload as TXPayload;
-    return combineLatest([this.cacheLoadingById$(cachePayload), this.fallbackCommand.loadingById$(cmdPayload)]).pipe(
-      map(([x, y]) => x || y),
-      distinctUntilChanged()
-    );
-  }
-
-  loadedById$(payload: TPayload & TXPayload): Observable<boolean>;
-  loadedById$(cachePayload: TPayload, commandPayload: TXPayload): Observable<boolean>;
-  loadedById$(cachePayload: TPayload | (TPayload & TXPayload), commandPayload?: TXPayload) {
-    if (!this.getRequestId) return this.loading$;
-    if (!this.fallbackCommand || !('loadedById$' in this.fallbackCommand)) return this.cacheLoadedById$(cachePayload);
-    const cmdPayload = commandPayload ?? cachePayload as TXPayload;
-    return combineLatest([this.cacheLoadedById$(cachePayload), this.fallbackCommand.loadedById$(cmdPayload)]).pipe(
-      map(([x, y]) => x || y),
-      distinctUntilChanged()
-    );
-  }
-
-  failedById$(payload: TPayload & TXPayload): Observable<boolean>;
-  failedById$(cachePayload: TPayload, commandPayload: TXPayload): Observable<boolean>;
-  failedById$(cachePayload: TPayload | (TPayload & TXPayload), commandPayload?: TXPayload) {
-    if (!this.getRequestId) return this.failed$;
-    if (!this.fallbackCommand || !('failedById$' in this.fallbackCommand)) return this.cacheFailedById$(cachePayload);
-    const cmdPayload = commandPayload ?? cachePayload as TXPayload;
-    return combineLatest([this.cacheFailedById$(cachePayload), this.fallbackCommand.failedById$(cmdPayload)]).pipe(
-      map(([x, y]) => x || y),
-      distinctUntilChanged()
-    );
-  }
-
-  errorById$(payload: TPayload & TXPayload): Observable<Error|undefined>;
-  errorById$(cachePayload: TPayload, commandPayload: TXPayload): Observable<Error|undefined>;
-  errorById$(cachePayload: TPayload | (TPayload & TXPayload), commandPayload?: TXPayload): Observable<Error|undefined> {
-    if (!this.getRequestId) return this.error$;
-    if (!this.fallbackCommand || !('errorById$' in this.fallbackCommand)) return this.cacheErrorById$(cachePayload);
-    const cmdPayload = commandPayload ?? cachePayload as TXPayload;
-    return combineLatest([this.cacheErrorById$(cachePayload), this.fallbackCommand.errorById$(cmdPayload)]).pipe(
-      map(([x, y]) => x ?? y),
-      distinctUntilChanged()
-    );
-  }
-
   //</editor-fold>
 
   private valueIsValid(data: TData | undefined): data is TData {
     return data != undefined && !this.options.failCondition?.(data);
   }
 
-  alreadyLoaded(payload: TPayload): boolean {
+  private alreadyLoaded(payload: TPayload): boolean {
     if (!this.options.initialLoad) return false;
-
-    if (this.getRequestId) {
-      return this.context.getLoadState(this, this.getRequestId(payload)) !== undefined
-    }
-
-    return this.context.getLoadState(this, undefined) !== undefined;
+    return untracked(this.loadedById(payload));
   }
 
-  cancelConcurrent(payload: TPayload): boolean {
+  private cancelConcurrent(payload: TPayload): boolean {
     if (!this.options.cancelConcurrent) return false;
+    return untracked(this.loadingById(payload));
+  }
 
-    if (this.getRequestId) {
-      return (this.context.getLoadState(this, this.getRequestId(payload)) ?? 0) > 0;
+  private canEmitError(payload: TPayload): Error | undefined {
+    if (this.alreadyLoaded(payload)) {
+      return new ActionCancelledError(this, 'This action has already been loaded', payload);
     }
 
-    return (this.context.getLoadState(this, undefined) ?? 0) > 0;
+    if (this.cancelConcurrent(payload)) {
+      return new ActionCancelledError(this, 'Actions was cancelled because another is already running', payload);
+    }
+
+    return undefined;
+  }
+
+  canEmit(payload: TPayload): boolean {
+    return !this.canEmitError(payload);
   }
 
   /**
    * Dispatch the command/fallback and return a LoadingState to monitor progress of both
    * @param payload - The command/cache payload
    */
-  observe(payload: TPayload & TXPayload): IValueLoadingState<TData | TXData>
+  emit(payload: TPayload & TXPayload): IValueRequestState<TData | TXData>
   /**
    * Dispatch the command/fallback and return a LoadingState to monitor progress of both
    * @param cachePayload - The cache payload
    * @param commandPayload - The command payload
    */
-  observe(cachePayload: TPayload, commandPayload: TXPayload): IValueLoadingState<TData | TXData>
-  observe(cachePayload: TPayload | (TPayload & TXPayload), commandPayload?: TXPayload): IValueLoadingState<TData | TXData> {
+  emit(cachePayload: TPayload, commandPayload: TXPayload): IValueRequestState<TData | TXData>
+  emit(cachePayload: TPayload | (TPayload & TXPayload), commandPayload?: TXPayload): IValueRequestState<TData | TXData> {
+
+    const error = this.canEmitError(cachePayload);
+    if (error) return requestState.error<TData>(error);
 
     const cmdPayload = commandPayload ?? cachePayload as TXPayload;
-
-    //<editor-fold desc="Precondition">
-
-    // Throw error if initial load has already been loaded
-    if (this.alreadyLoaded(cachePayload)) {
-      return Loading.FromError(() => new ActionCancelledError('This cache action has already been loaded', cachePayload));
-    }
-
-    // Throw error if the action is concurrent and concurrent are set to be cancelled
-    if (this.cancelConcurrent(cachePayload)) {
-      return Loading.FromError(() => new ActionCancelledError('Actions was cancelled because another is already running', cachePayload))
-    }
-
-    // Throw error if initial load has already been loaded for fallback
-    if (this.fallbackCommand && 'alreadyLoaded' in this.fallbackCommand) {
-      if (this.fallbackCommand.alreadyLoaded(cmdPayload)) {
-        return Loading.FromError(() => new ActionCancelledError('This cache fallback action has already been loaded', cachePayload))
+    if (this.fallback) {
+      if (!this.fallback.canEmit(cmdPayload)) {
+        return requestState.error<TData>(() => new ActionCancelledError(this, 'The fallback command cannot run', cmdPayload));
       }
     }
-    //</editor-fold>
 
     const requestId = this.getRequestId?.(cachePayload);
 
     this.context.startLoad(this, requestId);
 
-    //<editor-fold desc="State">
-    const sharedState = new Subject<TData | TXData | void>();
-    const sharedLoadingState = Loading.Async<TData | TXData | void>(sharedState) as LoadingState<TData | TXData>;
-
+    //<editor-fold desc="Setup">
     const online = typeof navigator == 'undefined' ? true : navigator.onLine;
     const maxAge = online ? this.options.onlineMaxAge : this.options.offlineMaxAge;
     const absoluteAge = online ? !!this.options.onlineAbsoluteAge : !!this.options.offlineAbsoluteAge;
     //</editor-fold>
 
-    //<editor-fold desc="Fallback Helpers">
+    let state: IValueRequestState<TData|undefined> | undefined = undefined;
+    const output = requestState.writable<TData|TXData>(() => state?.cancel());
 
-    // Method that emits the fallback command
-    const emitFallback = () => {
-      // Concurrent Plain fallback
-      if (this.fallbackCommand instanceof PlainCommand) {
-        this.fallbackCommand.emit(cmdPayload);
-        sharedState.next();
-        return;
-      }
-
-      // Concurrent async fallback
-      this.fallbackCommand!.observe(cmdPayload)
-        .then(data => sharedState.next(data))
-        .catch(err => sharedState.error(err));
-    };
-
-    const resetFallback = () => {
-      if (!this.fallbackCommand) return;
-      if (this.fallbackCommand instanceof AsyncPayloadCommand) {
-        this.fallbackCommand.resetFailureStateById(cmdPayload);
-        return;
-      }
-      if (this.fallbackCommand instanceof AsyncCommand) {
-        this.fallbackCommand.resetFailState();
-      }
-    };
-
-    //</editor-fold>
+    //<editor-fold desc="Skip Cache">
 
     // Check if cache should be used based on online state of client
     if (online && !this.options.cacheWhenOnline) {
-      if (this.fallbackCommand) {
-        emitFallback();
-        this.context.endLoad(this, requestId)
-      } else {
+
+      if (!this.fallback) {
+
         const error = new CacheCommandError('Cache disabled online, but missing fallback', cachePayload);
-        sharedState.error(error);
-        this.context.failLoad(this, error, requestId)
+        output.setError(error);
+
+        this.context.failLoad(this, error, requestId);
+        return output;
       }
-      return sharedLoadingState;
+
+      this.fallback.emit(cmdPayload).then(
+        value => output.setValue(value),
+        error => output.setError(error)
+      );
+
+      this.context.endLoad(this, requestId)
+      return output;
     }
 
-    //<editor-fold desc="Cache Reducer Action">
-
-    // Create a delayed loading state
-    const cacheLoad = Loading.Delayed(
-      () => this.options.action({
-        options: {maxAge, absoluteAge},
-        payload: cachePayload
-      })
-    );
-
-    // Define the execution for the Command
-    const execute = () => {
-      const startedAt = Date.now();
-
-      // Trigger action and map result
-      return cacheLoad.trigger$.pipe(
-        // Log errors
-        tap({error: error => this.onFailure(cachePayload, error, startedAt)}),
-        // Terminate failed cache reads (undefined)
-        switchMap(x => {
-          if (this.valueIsValid(x)) return of(x);
-          this.onNoCache(cachePayload, startedAt);
-          return EMPTY
-        }),
-        // Generate reducer
-        map(result => {
-          this.onSuccess(cachePayload, result, startedAt);
-          return (state: TState) => this.reducer(state, result, cachePayload);
-        })
-      )
-    };
     //</editor-fold>
 
-    // Send Queue Action
-    this.context.applyCommand(new QueueAction<TState>(
-      this,
-      execute,
-      () => cacheLoad.cancel(),
-      true
-    ));
+    const cacheAction = () => this.options.action({
+      options: {maxAge, absoluteAge},
+      payload: cachePayload
+    });
 
     //<editor-fold desc="Cache Value Parsing Helper">
+
+    const resetFallback = () => {
+      this.fallback?.resetFailureStateById(cmdPayload);
+    };
+
     /**
      * A method that handles the cache result
-     * @param result
+     * @param isValid - True if the data is valid
      * @throws CacheCommandError - Throws error if invalid state is reached
-     * @return valid - Returns true if value should be returned, false when fallback should be emitted
+     * @return state - Returns an error in failure states, true if the cache value should be used, and false if the fallback should be emitted
      */
-    const validateCacheResult = (result: TData|undefined): boolean => {
-      if (this.fallbackCommand) {
+    const getBehaviour = (isValid: boolean): Error|boolean|undefined => {
 
-        //<editor-fold desc="Concurrent Fallback">
-        if (this.concurrentFallback) {
+      //<editor-fold desc="No Fallback">
+      if (!this.fallback) {
 
-          // If fallback is not valid
-          if (!online && !this.options.fallbackWhenOffline) {
+        // If no fallback, and invalid cache return error
+        if (!isValid) {
+          return new CacheCommandError('No value found in cache, and no fallback', cachePayload);
+        }
 
-            // If fallback is not valid, and cache wasn't valid, return error
-            if (!this.valueIsValid(result)) {
-              throw new CacheCommandError(`Concurrent fallback isn't offline, and no value found in cache`, cachePayload);
-            }
+        // Default case - Emit cache result
+        return true;
+      }
+      //</editor-fold>
 
-            // If fallback isn't valid, but cache was, return cache value
-            resetFallback();
-            return true;
+      //<editor-fold desc="Concurrent Fallback">
+      if (this.concurrentFallback) {
+
+        // If fallback is not valid
+        if (!online && !this.options.fallbackWhenOffline) {
+
+          // If fallback is not valid, and cache wasn't valid, return error
+          if (!isValid) {
+            return new CacheCommandError(`Concurrent fallback isn't offline, and no value found in cache`, cachePayload);
           }
 
-          // If fallback is valid, execute it
-          return false;
-        }
-        //</editor-fold>
-
-        // If cache was valid, return cache
-        if (this.valueIsValid(result)) {
+          // If fallback isn't valid, but cache was, return cache value
           resetFallback();
           return true;
         }
 
-        // If fallback is invalid return error
-        if (!online && !this.options.fallbackWhenOffline) {
-          throw new CacheCommandError('No value found in cache, and no offline fallback', cachePayload);
-        }
-
-        // If fallback is valid, but cache wasn't, emit fallback
+        // If fallback is valid, execute it
         return false;
       }
+      //</editor-fold>
 
-      // If no fallback, and invalid cache return error
-      if (!this.valueIsValid(result)) {
-        throw new CacheCommandError('No value found in cache, and no fallback', cachePayload);
+      // If cache was valid, return cache
+      if (isValid) {
+        resetFallback();
+        return true;
       }
 
-      // Default case - Emit cache result
-      return true;
+      // If fallback is invalid return error
+      if (!online && !this.options.fallbackWhenOffline) {
+        return new CacheCommandError('No value found in cache, and no offline fallback', cachePayload);
+      }
+
+      // If fallback is valid, but cache wasn't, emit fallback
+      return false;
     }
     //</editor-fold>
 
-    //<editor-fold desc="Post Cache Fallback logic">
-    cacheLoad
-      .then(result => {
-        try {
-          // Check if cache result is valid
-          const valid = validateCacheResult(result);
-          this.context.endLoad(this, requestId);
+    //<editor-fold desc="Execution logic">
+    const execute$ = new Observable<Reducer<TState>>(subscriber => {
 
-          // If valid return result
-          if (valid) sharedState.next(result);
-          // If invalid, emit the fallback
-          else emitFallback();
+      // Handle errors
+      const onError = (error: Error) => {
 
-        } catch (e: unknown) {
-          // Handle fail states
-          const error = e instanceof Error ? e : Error();
-          this.context.failLoad(this, error, requestId);
-          sharedState.error(error);
+        this.logFailure(cachePayload, error, startedAt);
+        this.context.failLoad(this, error, requestId);
+
+        subscriber.error(error);
+
+        output.setError(error);
+      }
+
+      // Handle successful request
+      const onValue = (value: TData|undefined) => {
+
+        const isValid = this.valueIsValid(value);
+
+        if (isValid) {
+          const reducer = (storeState: TState) => this.reducer(storeState, value, cachePayload);
+          subscriber.next(reducer);
+          subscriber.complete();
+          this.logSuccess(cachePayload, value, startedAt);
+        } else {
+          this.logNoCache(cachePayload, startedAt);
+          subscriber.complete();
         }
-      })
-      .catch(err => {
-        this.context.failLoad(this, err, requestId);
-        sharedState.error(err);
-      });
+
+        const behaviour = getBehaviour(isValid);
+
+        // Handle Error state
+        if (behaviour instanceof Error) {
+          this.context.failLoad(this, behaviour, requestId);
+          output.setError(behaviour);
+          return;
+        }
+
+        // handle valid cache state
+        if (behaviour) {
+          output.setError(value);
+          return;
+        }
+
+        // Handle "Load fallback" state
+        this.fallback?.emit(cmdPayload).then(
+          value => output.setValue(value),
+          error => output.setError(error)
+        );
+      }
+
+      if (untracked(output.cancelled)) {
+        const error = new ActionCancelledError(this, "Action cancelled before execution", cachePayload);
+        onError(error);
+        return;
+      }
+
+      const startedAt = Date.now();
+
+      try {
+        const result = cacheAction();
+        state = requestState(result);
+        state.then(onValue, onError);
+
+        return () => {
+          state?.cancel(() => new ActionCancelledError(this, "Action cancelled during execution", cachePayload));
+        };
+
+      } catch (error: unknown) {
+        onError(parseError(error));
+      }
+
+      return;
+
+    }).pipe(shareReplay());
     //</editor-fold>
 
-    return sharedLoadingState;
+    const queueAction = new QueueAction<TState>(
+      this,
+      execute$,
+      () => output.cancel(),
+      true
+    );
+
+    // Send Queue Action
+    this.context.applyCommand(queueAction);
+
+    return output;
   };
+
+  /**
+   * Handle a successful cache load with no content
+   * @param payload
+   * @param startedAt
+   * @private
+   */
+  private logNoCache(payload: TPayload, startedAt?: number) {
+    if (!this.context.isProduction) {
+      logActionInformation(this.name, 'Cache is empty', startedAt, payload);
+    }
+  }
 
   /**
    * Handle a successful action
@@ -424,7 +390,7 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends As
    * @param startedAt
    * @private
    */
-  private onSuccess(payload: TPayload, result: TData, startedAt?: number) {
+  private logSuccess(payload: TPayload, result: TData, startedAt?: number) {
 
     // Display success message
     if (this.options.successMessage) {
@@ -438,25 +404,13 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends As
   }
 
   /**
-   * Handle a successful cache load with no content
-   * @param payload
-   * @param startedAt
-   * @private
-   */
-  private onNoCache(payload: TPayload, startedAt?: number) {
-    if (!this.context.isProduction) {
-      logActionInformation(this.name, 'Cache is empty', startedAt, payload);
-    }
-  }
-
-  /**
    * Handle a failed action
    * @param payload
    * @param error
    * @param startedAt
    * @private
    */
-  private onFailure(payload: TPayload, error: Error, startedAt?: number) {
+  private logFailure(payload: TPayload, error: Error, startedAt?: number) {
 
     // Display error message
     if (this.options.errorMessage) {
@@ -465,34 +419,4 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends As
 
     if (!this.context.isProduction) logFailedAction(this.name, startedAt, payload, error);
   }
-
-  /**
-   * Emit the command with no status returned
-   * @param payload - The command/cache payload
-   */
-  emit(payload: TPayload & TXPayload): void
-  /**
-   * Emit the command with no status returned
-   * @param cachePayload - The cache payload
-   * @param commandPayload - The command payload
-   */
-  emit(cachePayload: TPayload, commandPayload: TXPayload): void
-  emit(cachePayload: TPayload | (TPayload & TXPayload), commandPayload?: TXPayload): void {
-    this.observe(cachePayload, commandPayload as TXPayload);
-  };
-
-  /**
-   * Emit the cache / fallback command with a Promise status
-   * @param payload - The command/cache payload
-   */
-  emitAsync(payload: TPayload & TXPayload): Promise<TData | TXData>
-  /**
-   * Emit the cache / fallback command with a Promise status
-   * @param cachePayload - The cache payload
-   * @param commandPayload - The command payload
-   */
-  emitAsync(cachePayload: TPayload, commandPayload: TXPayload): Promise<TData | TXData>
-  emitAsync(cachePayload: TPayload | (TPayload & TXPayload), commandPayload?: TXPayload): Promise<TData | TXData> {
-    return this.observe(cachePayload, commandPayload as TXPayload).resultAsync;
-  };
 }

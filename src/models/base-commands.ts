@@ -1,6 +1,6 @@
 import {StoreServiceContext} from "../configs/command-config";
 import {IdMap, parseIdMap} from "../lib/id-map";
-import {IRequestState, IValueRequestState} from "../utils/request-state";
+import {IValueRequestState} from "../utils/request-state";
 import {computed, Signal} from "@angular/core";
 
 export abstract class BaseCommand {
@@ -61,7 +61,7 @@ export abstract class StoreCommand<TState> extends BaseCommand {
   }
 }
 
-export abstract class PayloadCommand<TState, TPayload> extends StoreCommand<TState> {
+export abstract class PayloadCommand<TState, TPayload, TResult> extends StoreCommand<TState> {
 
   protected getRequestId?: (payload: TPayload) => string;
 
@@ -75,7 +75,7 @@ export abstract class PayloadCommand<TState, TPayload> extends StoreCommand<TSta
    * Emit the command
    * @param payload
    */
-  abstract emit(payload: TPayload): IRequestState;
+  abstract emit(payload: TPayload): IValueRequestState<TResult>;
 
   /**
    * Returns true if the command can be emitted
@@ -143,12 +143,6 @@ export abstract class PayloadCommand<TState, TPayload> extends StoreCommand<TSta
     }
     this.context.resetErrorState(this, this.getRequestId(payload));
   }
-
-}
-
-export abstract class AsyncCommand<TState, TPayload, TResult> extends PayloadCommand<TState, TPayload> {
-
-  abstract override emit(payload: TPayload): IValueRequestState<TResult>;
 
 }
 

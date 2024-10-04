@@ -1,10 +1,10 @@
 import {StoreServiceContext} from "../configs/command-config";
 import {ActionCancelledError, PayloadCommand, QueueAction, Reducer} from "../models";
-import {IRequestState, requestState} from "../utils/request-state";
+import {IValueRequestState, requestState} from "../utils/request-state";
 import {Observable, shareReplay} from "rxjs";
 import {untracked} from "@angular/core";
 
-export class PlainCommand<TState, TData> extends PayloadCommand<TState, TData> {
+export class PlainCommand<TState, TData> extends PayloadCommand<TState, TData, TData> {
 
   readonly isSync = true;
 
@@ -23,13 +23,17 @@ export class PlainCommand<TState, TData> extends PayloadCommand<TState, TData> {
     return true;
   }
 
-  override emit(payload: TData): IRequestState {
+  /**
+   * Dispatch the command and return a RequestState to monitor when the reducer is applied to the store
+   * @param payload - The command payload
+   */
+  override emit(payload: TData): IValueRequestState<TData> {
 
     const requestId = undefined;
 
     this.context.startLoad(this, requestId);
 
-    const output = requestState.writable();
+    const output = requestState.writable<TData>();
 
     const execute$ = new Observable<Reducer<TState>>(subscriber => {
 
@@ -48,7 +52,7 @@ export class PlainCommand<TState, TData> extends PayloadCommand<TState, TData> {
       subscriber.next(reducer);
       subscriber.complete();
 
-      output.setValue(undefined);
+      output.setValue(payload);
 
     }).pipe(shareReplay());
     //</editor-fold>

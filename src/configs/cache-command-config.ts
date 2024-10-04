@@ -4,12 +4,10 @@ import {
   objectReducerScope, ReducerScope, rootReducerScope
 } from "../models/reducer-scope";
 import {ArrayType, Conditional, KeysOfTypeOrNull, SimpleObject, ValueOfKey} from "@juulsgaard/ts-tools";
-import {ListReducer, ListSelector, ObjectReducer} from "../models/store-types";
+import {ListReducer, ListSelector, ObjectReducer, PayloadCommand} from "../models";
 import {CacheCommand, CacheCommandOptions} from "../commands/cache-command";
 import {CacheChunk} from "../caching/cache-chunk";
-import {PlainCommand} from "../commands/plain-command";
 import {tap} from "rxjs";
-import {ActionCommandUnion, StoreCommandUnion} from "../models/base-commands";
 import {IdMap, parseIdMap} from "../lib/id-map";
 
 
@@ -439,10 +437,8 @@ class CacheCommandEffectConfig<TState, TPayload, TData> {
     private readonly reducer: (state: TState, data: TData, payload: TPayload) => TState
   ) {}
 
-  withFallback<TXPayload, TXData>(command: ActionCommandUnion<TState, TXPayload, TXData>): CacheCommand<TState, TPayload, TData, TXPayload, TXData>
-  withFallback<TXPayload>(command: PlainCommand<TState, TXPayload>): CacheCommand<TState, TPayload, TData, TXPayload, void>
-  withFallback<TXPayload>(command: StoreCommandUnion<TState, TXPayload>): CacheCommand<TState, TPayload, TData, TXPayload, any> {
-    return new CacheCommand<TState, TPayload, TData, TXPayload, any>(
+  withFallback<TXPayload, TXData>(command: PayloadCommand<TState, TXPayload, TXData>): CacheCommand<TState, TPayload, TData, TXPayload, TXData> {
+    return new CacheCommand<TState, TPayload, TData, TXPayload, TXData>(
       this.context,
       this.options,
       this.reducer,
@@ -451,10 +447,8 @@ class CacheCommandEffectConfig<TState, TPayload, TData> {
     );
   }
 
-  withConcurrent<TXPayload, TXData>(command: ActionCommandUnion<TState, TXPayload, TXData>): CacheCommand<TState, TPayload, TData, TXPayload, TXData>
-  withConcurrent<TXPayload>(command: PlainCommand<TState, TXPayload>): CacheCommand<TState, TPayload, TData, TXPayload, void>
-  withConcurrent<TXPayload>(command: StoreCommandUnion<TState, TXPayload>): CacheCommand<TState, TPayload, TData, TXPayload, any> {
-    return new CacheCommand<TState, TPayload, TData, TXPayload, any>(
+  withConcurrent<TXPayload, TXData>(command: PayloadCommand<TState, TXPayload, TXData>): CacheCommand<TState, TPayload, TData, TXPayload, TXData> {
+    return new CacheCommand<TState, TPayload, TData, TXPayload, TXData>(
       this.context,
       this.options,
       this.reducer,
@@ -463,8 +457,8 @@ class CacheCommandEffectConfig<TState, TPayload, TData> {
     );
   }
 
-  noFallback(): CacheCommand<TState, TPayload, TData, TPayload, void> {
-    return new CacheCommand<TState, TPayload, TData, TPayload, void>(
+  noFallback(): CacheCommand<TState, TPayload, TData, void, void> {
+    return new CacheCommand<TState, TPayload, TData, void, void>(
       this.context,
       this.options,
       this.reducer
