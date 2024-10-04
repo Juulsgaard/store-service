@@ -1,3 +1,5 @@
+import {BaseCommand} from "./base-commands";
+
 /**
  * An error with Action Commands
  */
@@ -16,14 +18,8 @@ export class CacheCommandError<TPayload> extends Error {
 }
 
 export class ActionCancelledError<TPayload> extends Error {
-  constructor(message: string, public payload: TPayload) {
+  constructor(readonly cmd: BaseCommand, message: string, readonly payload: TPayload) {
     super(message);
   }
 
-}
-
-export class CancelledError extends Error {
-  constructor(message?: string) {
-    super(message ?? 'Cancelled');
-  }
 }

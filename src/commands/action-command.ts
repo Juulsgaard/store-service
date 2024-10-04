@@ -1,15 +1,13 @@
 import {Observable, shareReplay} from "rxjs";
 import {logFailedAction, logSuccessfulAction} from "../models/logging";
 import {CommandAction, Reducer} from "../models/store-types";
-import {ActionCancelledError, CancelledError} from "../models/errors";
 import {StoreServiceContext} from "../configs/command-config";
-import {QueueAction} from "../models/queue-action";
 import {retryAction} from "../lib/retry";
-import {AsyncCommand} from "../models/base-commands";
 import {IdMap} from "../lib/id-map";
 import {untracked} from "@angular/core";
 import {IValueRequestState, requestState} from "../utils/request-state";
 import {parseError} from "@juulsgaard/ts-tools";
+import {ActionCancelledError, AsyncCommand, QueueAction} from "../models";
 
 
 /**
@@ -65,11 +63,11 @@ export class ActionCommand<TState, TPayload, TData> extends AsyncCommand<TState,
 
   private canEmitError(payload: TPayload): Error | undefined {
     if (this.alreadyLoaded(payload)) {
-      return new ActionCancelledError('This action has already been loaded', payload);
+      return new ActionCancelledError(this, 'This action has already been loaded', payload);
     }
 
     if (this.cancelConcurrent(payload)) {
-      return new ActionCancelledError('Actions was cancelled because another is already running', payload);
+      return new ActionCancelledError(this, 'Actions was cancelled because another is already running', payload);
     }
 
     return undefined;
@@ -90,7 +88,7 @@ export class ActionCommand<TState, TPayload, TData> extends AsyncCommand<TState,
 
     if (!force) {
       const error = this.canEmitError(payload);
-      if (error) return requestState.typedError<TData>(() => error);
+      if (error) return requestState.error<TData>(error);
     }
 
     const requestId = this.getRequestId?.(payload);
@@ -122,7 +120,7 @@ export class ActionCommand<TState, TPayload, TData> extends AsyncCommand<TState,
     const execute$ = new Observable<Reducer<TState>>(subscriber => {
 
       // handle failed request
-      const onError = (error: Error, startedAt?: number) => {
+      const onError = (error: Error) => {
 
         this.logFailure(payload, error, startedAt);
         this.context.failLoad(this, error, requestId);
@@ -150,7 +148,7 @@ export class ActionCommand<TState, TPayload, TData> extends AsyncCommand<TState,
       }
 
       if (cancelled) {
-        const error = new CancelledError("Action cancelled before execution");
+        const error = new ActionCancelledError(this, "Action cancelled before execution", payload);
         onError(error);
         return;
       }
@@ -161,7 +159,10 @@ export class ActionCommand<TState, TPayload, TData> extends AsyncCommand<TState,
         const result = action();
         state = requestState(result);
         state.then(onValue, onError);
-        return () => state?.cancel();
+
+        return () => {
+          state?.cancel(() => new ActionCancelledError(this, "Action cancelled during execution", payload));
+        };
 
       } catch (error: unknown) {
         onError(parseError(error));

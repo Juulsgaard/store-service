@@ -1,7 +1,7 @@
 import {
   BaseStoreServiceContext, StoreClientCommandConfig, StoreCommandConfig, StoreServiceContext
 } from "./configs/command-config";
-import {AsyncCommand, BaseCommand, IStoreConfigService, StoreCommand} from "./models";
+import {BaseCommand, IStoreConfigService, StoreCommand} from "./models";
 import {arrToMap, deepCopy, deepFreeze, titleCase} from "@juulsgaard/ts-tools";
 import {DestroyRef, inject, signal, Signal, untracked, WritableSignal} from "@angular/core"
 import {ActionQueue} from "./utils/action-queue";
@@ -112,19 +112,19 @@ export abstract class StoreService<TState extends Record<string, any>> {
       getErrorState: (cmd, requestId) => this.getErrorState(cmd, requestId).asReadonly(),
       getLoadState: (cmd, requestId) => this.getLoadState(cmd, requestId).asReadonly(),
 
-      startLoad: (cmd: AsyncCommand<TState>, requestId: string|undefined) => {
+      startLoad: (cmd: StoreCommand<TState>, requestId: string|undefined) => {
         this.startLoad(cmd, undefined);
         if (requestId) this.startLoad(cmd, requestId)
       },
-      endLoad: (cmd: AsyncCommand<TState>, requestId: string|undefined) => {
+      endLoad: (cmd: StoreCommand<TState>, requestId: string|undefined) => {
         this.endLoad(cmd, undefined);
         if (requestId) this.endLoad(cmd, requestId)
       },
-      failLoad: (cmd: AsyncCommand<TState>, error: Error, requestId: string) => {
+      failLoad: (cmd: StoreCommand<TState>, error: Error, requestId: string) => {
         this.failLoad(cmd, error, undefined);
         if (requestId) this.failLoad(cmd, error, requestId)
       },
-      resetErrorState: (cmd: AsyncCommand<TState>, requestId: string|undefined) => {
+      resetErrorState: (cmd: StoreCommand<TState>, requestId: string|undefined) => {
         this.resetErrorState(cmd, undefined);
         if (requestId) this.resetErrorState(cmd, requestId)
       }
@@ -154,7 +154,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
    * @param requestId - An optional RequestId
    * @private
    */
-  private getLoadState(cmd: AsyncCommand<TState>, requestId: string|undefined) {
+  private getLoadState(cmd: StoreCommand<TState>, requestId: string|undefined) {
     if (!requestId) {
       let state = this.loadStates.get(cmd);
       if (state) return state;
@@ -186,7 +186,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
    * @param requestId - An optional RequestId
    * @private
    */
-  private getErrorState(cmd: AsyncCommand<TState>, requestId: string|undefined) {
+  private getErrorState(cmd: StoreCommand<TState>, requestId: string|undefined) {
     if (!requestId) {
       let state = this.errorStates.get(cmd);
       if (state) return state;
@@ -218,7 +218,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
    * @param requestId
    * @private
    */
-  private startLoad(cmd: AsyncCommand<TState>, requestId: string|undefined) {
+  private startLoad(cmd: StoreCommand<TState>, requestId: string|undefined) {
     const state = this.getLoadState(cmd, requestId);
     state.update(x => (x ?? 0) + 1);
 
@@ -232,7 +232,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
    * @param requestId
    * @private
    */
-  private endLoad(cmd: AsyncCommand<TState>, requestId: string|undefined) {
+  private endLoad(cmd: StoreCommand<TState>, requestId: string|undefined) {
     const state = this.getLoadState(cmd, requestId);
     state.update(x => (x ?? 1) - 1);
 
@@ -247,7 +247,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
    * @param requestId
    * @private
    */
-  private failLoad(cmd: AsyncCommand<TState>, error: Error, requestId: string|undefined) {
+  private failLoad(cmd: StoreCommand<TState>, error: Error, requestId: string|undefined) {
 
     this.getErrorState(cmd, requestId).set(error);
 
@@ -263,7 +263,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
     state.set(val - 1);
   }
 
-  private resetErrorState(cmd: AsyncCommand<TState>, requestId: string|undefined) {
+  private resetErrorState(cmd: StoreCommand<TState>, requestId: string|undefined) {
     if (requestId) {
       this.requestErrorStates.get(cmd)?.get(requestId)?.set(undefined);
       return;
