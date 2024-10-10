@@ -3,9 +3,10 @@ import {IStoreConfigService} from "./models/store-config-service";
 import {dashCase, SimpleObject} from "@juulsgaard/ts-tools";
 import {CacheDatabaseContext} from "./caching/caching-interface";
 import {CacheConfig} from "./caching/cache-config";
-import {Observable, ReplaySubject, skip} from "rxjs";
+import {BehaviorSubject, Observable} from "rxjs";
 import {CacheChunk} from "./caching/cache-chunk";
 import {CacheCommandConfig} from "./configs/cache-command-config";
+import {untracked} from "@angular/core";
 
 
 export abstract class CacheStoreService<TState extends SimpleObject> extends StoreService<TState> {
@@ -16,28 +17,40 @@ export abstract class CacheStoreService<TState extends SimpleObject> extends Sto
    */
   private readonly storeId: string;
 
-  private states$ = new ReplaySubject<Observable<TState>>();
+  private readonly _states$: BehaviorSubject<BehaviorSubject<TState>>;
+  private readonly states$: Observable<Observable<TState>>;
 
   protected constructor(initialState: TState, configService: IStoreConfigService, private databaseContext: CacheDatabaseContext) {
     super(initialState, configService);
 
     this.storeId = dashCase(this.constructor.name);
 
-    this.states$.next(this.state$);
+    const state = untracked(this.state);
+    this._states$ = new BehaviorSubject(new BehaviorSubject(state));
+    this.states$ = this._states$.asObservable();
+
+    this.onDestroy.onDestroy(() => {
+      this._states$.value.complete();
+      this._states$.complete();
+    });
   }
 
   override reset() {
-    if (this.disposed) throw Error('The store has been disposed');
-
-    // Emit a new state start starts with the next state value
-    // That value will be the default for the state, since super.reset() emits default
-    this.states$.next(this.state$.pipe(skip(1)));
     super.reset();
+
+    this._states$.value.complete();
+    const state = untracked(this.state);
+    this._states$.next(new BehaviorSubject(state));
   }
 
-  override dispose() {
-    super.dispose();
-    this.states$.complete();
+  protected override applyState(state: TState): boolean {
+    const applied = super.applyState(state);
+    if (!applied) return applied;
+
+    const newState = untracked(this.state);
+    this._states$.value.next(newState);
+
+    return applied;
   }
 
   protected cache(chunkId: string, version: number): CacheConfig<TState> {

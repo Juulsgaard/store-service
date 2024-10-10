@@ -80,7 +80,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
   protected context: StoreServiceContext<TState>;
 
   private configService: IStoreConfigService;
-  private onDestroy = inject(DestroyRef);
+  protected onDestroy = inject(DestroyRef);
   private disposed = false;
 
   protected constructor(private initialState: TState, configService?: IStoreConfigService) {
@@ -141,7 +141,7 @@ export abstract class StoreService<TState extends Record<string, any>> {
    * @param state - The new state
    * @private
    */
-  private applyState(state: TState): boolean {
+  protected applyState(state: TState): boolean {
     if (untracked(this._state) === state) return false;
     this._state.set(this.freeze(state));
     return true;

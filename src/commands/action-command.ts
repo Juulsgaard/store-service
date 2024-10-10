@@ -5,9 +5,9 @@ import {StoreServiceContext} from "../configs/command-config";
 import {retryAction} from "../lib/retry";
 import {IdMap} from "../lib/id-map";
 import {untracked} from "@angular/core";
-import {IValueRequestState, requestState} from "../utils/request-state";
 import {parseError} from "@juulsgaard/ts-tools";
 import {ActionCancelledError, PayloadCommand, QueueAction} from "../models";
+import {IValueRequestState, requestState} from "@juulsgaard/signal-tools";
 
 
 /**
@@ -166,7 +166,6 @@ export class ActionCommand<TState, TPayload, TData> extends PayloadCommand<TStat
     const queueAction = new QueueAction<TState>(
       this,
       execute$,
-      () => output.cancel(),
       this.options.queue
     );
 

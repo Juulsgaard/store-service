@@ -1,7 +1,7 @@
 import {StoreServiceContext} from "../configs/command-config";
 import {IdMap, parseIdMap} from "../lib/id-map";
-import {IValueRequestState} from "../utils/request-state";
 import {computed, Signal} from "@angular/core";
+import {IValueRequestState} from "@juulsgaard/signal-tools";
 
 export abstract class BaseCommand {
 

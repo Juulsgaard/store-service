@@ -1,8 +1,8 @@
 import {StoreServiceContext} from "../configs/command-config";
 import {ActionCancelledError, PayloadCommand, QueueAction, Reducer} from "../models";
-import {IValueRequestState, requestState} from "../utils/request-state";
 import {Observable, shareReplay} from "rxjs";
 import {untracked} from "@angular/core";
+import {IValueRequestState, requestState} from "@juulsgaard/signal-tools";
 
 export class PlainCommand<TState, TData> extends PayloadCommand<TState, TData, TData> {
 
@@ -59,8 +59,7 @@ export class PlainCommand<TState, TData> extends PayloadCommand<TState, TData, T
 
     const queueAction = new QueueAction<TState>(
       this,
-      execute$,
-      () => output.cancel()
+      execute$
     );
 
     // Send Queue Action

@@ -9,7 +9,6 @@ export class QueueAction<TState> {
   constructor(
     public type: BaseCommand,
     private execution$: Observable<Reducer<TState>>,
-    private onCancel?: () => void,
     public queued: boolean = false,
     public runInTransaction = false,
   ) {

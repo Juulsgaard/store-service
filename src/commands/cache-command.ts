@@ -5,8 +5,8 @@ import {ActionCancelledError, CacheCommandError, PayloadCommand, QueueAction} fr
 import {StoreServiceContext} from "../configs/command-config";
 import {IdMap} from "../lib/id-map";
 import {computed, Signal, untracked} from "@angular/core";
-import {IValueRequestState, requestState} from "../utils/request-state";
 import {parseError} from "@juulsgaard/ts-tools";
+import {IValueRequestState, requestState} from "@juulsgaard/signal-tools";
 
 
 /**
@@ -361,7 +361,6 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends Pa
     const queueAction = new QueueAction<TState>(
       this,
       execute$,
-      () => output.cancel(),
       true
     );
 

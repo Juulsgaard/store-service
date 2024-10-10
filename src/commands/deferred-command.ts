@@ -3,9 +3,9 @@ import {Observable, shareReplay} from "rxjs";
 import {CommandAction, Reducer} from "../models/store-types";
 import {StoreServiceContext} from "../configs/command-config";
 import {ActionCancelledError, PayloadCommand, QueueAction} from "../models";
-import {IValueRequestState, requestState} from "../utils/request-state";
 import {parseError} from "@juulsgaard/ts-tools";
 import {untracked} from "@angular/core";
+import {IValueRequestState, requestState} from "@juulsgaard/signal-tools";
 
 /**
  * The options for a Deferred Command
@@ -120,7 +120,6 @@ export class DeferredCommand<TState, TPayload, TData> extends PayloadCommand<TSt
     const queueAction = new QueueAction<TState>(
       this,
       execute$,
-      () => output.cancel(),
       false,
       true
     );
