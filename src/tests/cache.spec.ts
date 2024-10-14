@@ -1,14 +1,12 @@
-import {IStoreConfigService} from "../models/store-config-service";
 import {CacheStoreService} from "../cache-store-service";
-import {IndexedDbAdapter} from "../caching/adapters/indexed-db-adapter";
-import {BaseReducers} from "../collections/reducers";
+import {CacheDatabaseContext, IndexedDbAdapter} from "../caching";
+import {BaseReducers} from "../collections";
 import 'fake-indexeddb/auto';
 import {sleep} from "@juulsgaard/ts-tools";
-import {CacheDatabaseContext} from "../caching/caching-interface";
-
-var navigator = {
-  onLine: true
-};
+import {TestBed} from "@angular/core/testing";
+import {IStoreConfigService} from "../models";
+import {NoopStoreConfig} from "./shared";
+import {expect} from "@jest/globals";
 
 interface Value {
   id: string;
@@ -19,28 +17,9 @@ interface State {
   values: Value[];
 }
 
-class StoreConfig implements IStoreConfigService {
-  readonly isProduction = true;
-  readonly disableCache = false;
-
-  displayError(message: string, error: Error): void {
-  }
-
-  displaySuccess(message: string): void {
-  }
-
-  errorIsCritical(error: any): boolean {
-    return false;
-  }
-
-  logActionRetry(command: string, attempt: number, nextDelay: number): void {
-  }
-
-}
-
 class TestService extends CacheStoreService<State> {
   constructor() {
-    super({values: []}, new StoreConfig(), new CacheDatabaseContext(new IndexedDbAdapter(), 'database'));
+    super({values: []}, new CacheDatabaseContext(new IndexedDbAdapter(), 'database'));
   }
 
   add = this.command()
@@ -77,10 +56,20 @@ class TestService extends CacheStoreService<State> {
     .noFallback();
 }
 
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [{provide: IStoreConfigService, useClass: NoopStoreConfig}, TestService]
+  })
+});
 
 test('Cache', async () => {
 
-  const store = new TestService();
+  console.log(process.versions.node)
+
+  expect(global.setTimeout).not.toBeUndefined();
+  expect(global.structuredClone).not.toBeUndefined();
+
+  const store = TestBed.inject(TestService);
 
   store.add.emit({id: 'first', value: 'Test'});
   store.add.emit({id: 'second', value: 'Hello'});
@@ -104,13 +93,11 @@ test('Cache', async () => {
 
   const updated = await store.cached.readItem('second');
   expect(updated?.data.value).toEqual('NewVal');
-
-  store.dispose();
 })
 
 test('Load', async () => {
 
-  const store = new TestService();
+  const store = TestBed.inject(TestService);
 
   store.add.emit({id: 'first', value: 'Test'});
   store.add.emit({id: 'second', value: 'Hello'});
@@ -122,6 +109,4 @@ test('Load', async () => {
   await store.load.emit();
 
   expect(store.state().values.length).toEqual(2);
-
-  store.dispose();
 })

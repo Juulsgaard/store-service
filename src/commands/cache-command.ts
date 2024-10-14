@@ -320,8 +320,8 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends Pa
         }
 
         // handle valid cache state
-        if (behaviour) {
-          output.setError(value);
+        if (isValid && behaviour === true) {
+          output.setValue(value);
           return;
         }
 
@@ -358,11 +358,7 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends Pa
     }).pipe(shareReplay());
     //</editor-fold>
 
-    const queueAction = new QueueAction<TState>(
-      this,
-      execute$,
-      true
-    );
+    const queueAction = new QueueAction<TState>(this, execute$, true);
 
     // Send Queue Action
     this.context.applyCommand(queueAction);

@@ -104,9 +104,9 @@ export abstract class StoreService<TState extends Record<string, any>> {
       errorIsCritical: error => this.configService.errorIsCritical(error),
       isProduction: this.configService.isProduction,
 
-      applyCommand: reducer$ => {
+      applyCommand: act => {
         if (this.disposed) return;
-        this.queue.addAction(reducer$);
+        this.queue.addAction(act);
       },
 
       getErrorState: (cmd, requestId) => this.getErrorState(cmd, requestId).asReadonly(),

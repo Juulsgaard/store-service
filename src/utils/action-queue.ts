@@ -7,7 +7,7 @@ export class ActionQueue<T> {
   private readonly queue: QueueAction<T>[] = [];
   private readonly cmdLocks = new Set<BaseCommand>();
   private transaction?: Observable<Reducer<T>>;
-  private readonly subscriptions = new Subscription();
+  private subscriptions = new Subscription();
   private executing: {interrupt: boolean}|undefined = undefined;
 
   constructor(private readonly state: Signal<T>, private readonly setState: (newState: T) => void) {
@@ -15,7 +15,7 @@ export class ActionQueue<T> {
 
   private execute() {
     if (this.executing) return;
-    this.executing = {interrupt: true};
+    this.executing = {interrupt: false};
 
     try {
       let cont = true;
@@ -124,6 +124,8 @@ export class ActionQueue<T> {
 
   public clear() {
     this.subscriptions.unsubscribe();
+    this.subscriptions = new Subscription();
+
     this.queue.length = 0;
     this.cmdLocks.clear();
     this.transaction = undefined;

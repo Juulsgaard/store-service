@@ -6,7 +6,7 @@ import {CacheConfig} from "./caching/cache-config";
 import {BehaviorSubject, Observable} from "rxjs";
 import {CacheChunk} from "./caching/cache-chunk";
 import {CacheCommandConfig} from "./configs/cache-command-config";
-import {untracked} from "@angular/core";
+import {inject, untracked} from "@angular/core";
 
 
 export abstract class CacheStoreService<TState extends SimpleObject> extends StoreService<TState> {
@@ -20,8 +20,12 @@ export abstract class CacheStoreService<TState extends SimpleObject> extends Sto
   private readonly _states$: BehaviorSubject<BehaviorSubject<TState>>;
   private readonly states$: Observable<Observable<TState>>;
 
-  protected constructor(initialState: TState, configService: IStoreConfigService, private databaseContext: CacheDatabaseContext) {
+  private readonly databaseContext: CacheDatabaseContext;
+
+  protected constructor(initialState: TState, databaseContext?: CacheDatabaseContext, configService?: IStoreConfigService) {
     super(initialState, configService);
+
+    this.databaseContext = databaseContext ?? inject(CacheDatabaseContext);
 
     this.storeId = dashCase(this.constructor.name);
 
