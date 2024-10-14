@@ -13,13 +13,13 @@ importers:
         version: 18.2.8(rxjs@7.8.1)(zone.js@0.14.10)
       '@juulsgaard/rxjs-tools':
         specifier: 1.7.6
-        version: 1.7.6(@juulsgaard/ts-tools@1.6.4(typescript@5.5.4))(rxjs@7.8.1)(typescript@5.5.4)
+        version: 1.7.6(@juulsgaard/ts-tools@1.6.5(typescript@5.5.4))(rxjs@7.8.1)(typescript@5.5.4)
       '@juulsgaard/signal-tools':
         specifier: 18.0.1
-        version: 18.0.1(@angular/core@18.2.8(rxjs@7.8.1)(zone.js@0.14.10))(@juulsgaard/rxjs-tools@1.7.6(@juulsgaard/ts-tools@1.6.4(typescript@5.5.4))(rxjs@7.8.1)(typescript@5.5.4))(@juulsgaard/ts-tools@1.6.4(typescript@5.5.4))(rxjs@7.8.1)(tslib@2.7.0)(typescript@5.5.4)
+        version: 18.0.1(@angular/core@18.2.8(rxjs@7.8.1)(zone.js@0.14.10))(@juulsgaard/rxjs-tools@1.7.6(@juulsgaard/ts-tools@1.6.5(typescript@5.5.4))(rxjs@7.8.1)(typescript@5.5.4))(@juulsgaard/ts-tools@1.6.5(typescript@5.5.4))(rxjs@7.8.1)(tslib@2.7.0)(typescript@5.5.4)
       '@juulsgaard/ts-tools':
-        specifier: 1.6.4
-        version: 1.6.4(typescript@5.5.4)
+        specifier: 1.6.5
+        version: 1.6.5(typescript@5.5.4)
       '@types/jest':
         specifier: ^29.5.12
         version: 29.5.12
@@ -502,8 +502,8 @@ packages:
       tslib: ^2.7.0
       typescript: ~5.5.4
 
-  '@juulsgaard/ts-tools@1.6.4':
-    resolution: {integrity: sha512-gSU6kO8JDZ8Htzt4MPeTE6eaJkNiuRogNDM5AcbmUh2wuyUJNIQTXDxiej8Lvkdc5167p9+bE+ouW5KYUfNBiQ==}
+  '@juulsgaard/ts-tools@1.6.5':
+    resolution: {integrity: sha512-PRIh88v8bgbXDp8g92PXjbLkXKdi1P/v1onVE/MEt55rjgIpqGndy7R/Z37VBP1/vl+UZzMOhXfRc7c1omxupA==}
     peerDependencies:
       typescript: ~5.5.4
 
@@ -2117,22 +2117,22 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.0
       '@jridgewell/sourcemap-codec': 1.4.15
 
-  '@juulsgaard/rxjs-tools@1.7.6(@juulsgaard/ts-tools@1.6.4(typescript@5.5.4))(rxjs@7.8.1)(typescript@5.5.4)':
+  '@juulsgaard/rxjs-tools@1.7.6(@juulsgaard/ts-tools@1.6.5(typescript@5.5.4))(rxjs@7.8.1)(typescript@5.5.4)':
     dependencies:
-      '@juulsgaard/ts-tools': 1.6.4(typescript@5.5.4)
+      '@juulsgaard/ts-tools': 1.6.5(typescript@5.5.4)
       rxjs: 7.8.1
       typescript: 5.5.4
 
-  '@juulsgaard/signal-tools@18.0.1(@angular/core@18.2.8(rxjs@7.8.1)(zone.js@0.14.10))(@juulsgaard/rxjs-tools@1.7.6(@juulsgaard/ts-tools@1.6.4(typescript@5.5.4))(rxjs@7.8.1)(typescript@5.5.4))(@juulsgaard/ts-tools@1.6.4(typescript@5.5.4))(rxjs@7.8.1)(tslib@2.7.0)(typescript@5.5.4)':
+  '@juulsgaard/signal-tools@18.0.1(@angular/core@18.2.8(rxjs@7.8.1)(zone.js@0.14.10))(@juulsgaard/rxjs-tools@1.7.6(@juulsgaard/ts-tools@1.6.5(typescript@5.5.4))(rxjs@7.8.1)(typescript@5.5.4))(@juulsgaard/ts-tools@1.6.5(typescript@5.5.4))(rxjs@7.8.1)(tslib@2.7.0)(typescript@5.5.4)':
     dependencies:
       '@angular/core': 18.2.8(rxjs@7.8.1)(zone.js@0.14.10)
-      '@juulsgaard/rxjs-tools': 1.7.6(@juulsgaard/ts-tools@1.6.4(typescript@5.5.4))(rxjs@7.8.1)(typescript@5.5.4)
-      '@juulsgaard/ts-tools': 1.6.4(typescript@5.5.4)
+      '@juulsgaard/rxjs-tools': 1.7.6(@juulsgaard/ts-tools@1.6.5(typescript@5.5.4))(rxjs@7.8.1)(typescript@5.5.4)
+      '@juulsgaard/ts-tools': 1.6.5(typescript@5.5.4)
       rxjs: 7.8.1
       tslib: 2.7.0
       typescript: 5.5.4
 
-  '@juulsgaard/ts-tools@1.6.4(typescript@5.5.4)':
+  '@juulsgaard/ts-tools@1.6.5(typescript@5.5.4)':
     dependencies:
       typescript: 5.5.4
 
