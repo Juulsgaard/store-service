@@ -319,6 +319,8 @@ export class CacheCommand<TState, TPayload, TData, TXPayload, TXData> extends Pa
           return;
         }
 
+        this.context.endLoad(this, requestId);
+
         // handle valid cache state
         if (isValid && behaviour === true) {
           output.setValue(value);

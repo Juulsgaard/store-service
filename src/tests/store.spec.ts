@@ -1,6 +1,6 @@
 import {StoreService} from "../store-service";
 import {ActionCancelledError, IStoreConfigService} from "../models";
-import {delay, of} from "rxjs";
+import {delay, of, switchMap, throwError, timer} from "rxjs";
 import {TestBed} from "@angular/core/testing";
 import {NoopStoreConfig} from "./shared";
 import {expect} from "@jest/globals";
@@ -41,6 +41,16 @@ class TestService extends StoreService<State> {
     .withAction((str: string) => of(str).pipe(delay(100)))
     .cancelConcurrent(x => x)
     .withReducer(str => ({temp: str}));
+
+  deferredAction = this.command()
+    .withDeferredAction((str: string) => of(str).pipe(delay(100)))
+    .withReducer(str => ({temp: str}));
+
+  deferredActionFails = this.command()
+    .withDeferredAction((str: string) => timer(100).pipe(
+      switchMap(() => throwError(() => new Error("Failing Request")))
+    ))
+    .withReducer(str => ({temp: str}));
 }
 
 beforeEach(() => {
@@ -65,8 +75,13 @@ test('Async Action', async () => {
 
   const req = store.asyncAction.emit('Modified');
   expect(store.asyncAction.loading()).toBe(true);
+  expect(req.loading()).toBe(true);
 
   await req;
+  expect(store.asyncAction.loading()).toBe(false);
+  expect(req.loading()).toBe(false);
+  expect(req.result()).toBe('Modified');
+
   expect(store.state()).toStrictEqual({temp: 'Modified'});
 });
 
@@ -102,4 +117,27 @@ test('No Concurrent Scoped Action', async () => {
 
   const fails = store.noConcurrentScopedAction.emit('Scope').asPromise();
   await expect(fails).rejects.toBeInstanceOf(ActionCancelledError);
+});
+
+test('Deferred Action', async () => {
+  const store = TestBed.inject(TestService);
+  const request = store.deferredAction.emit('Modified');
+  expect(store.state()).toStrictEqual({temp: 'Modified'});
+  expect(request.loading()).toBe(true);
+  await request;
+});
+
+test('Deferred Action Reverts', async () => {
+  const store = TestBed.inject(TestService);
+  expect(store.state()).toStrictEqual({temp: ''});
+
+  const request = store.deferredActionFails.emit('Modified');
+  expect(store.state()).toStrictEqual({temp: 'Modified'});
+  expect(request.loading()).toBe(true);
+
+  try {
+    await request;
+  } catch (error) {}
+
+  expect(store.state()).toStrictEqual({temp: ''});
 });

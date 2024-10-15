@@ -48,6 +48,15 @@ class TestService extends CacheStoreService<State> {
     .withReducer(values => ({values}))
     .noFallback();
 
+  loadRequest = this.command()
+    .withPayload()
+    .withReducer(() => ({values: [{id: 'loaded', value: 'This was loaded'}]}));
+
+  loadWithFallback = this.cacheCommand(this.cached)
+    .fromAll()
+    .withReducer(values => ({values}))
+    .withFallback(this.loadRequest);
+
   // Command for loading single cache value
   loadVal = this.cacheCommand(this.cached)
     .fromSingle()
@@ -63,12 +72,6 @@ beforeEach(() => {
 });
 
 test('Cache', async () => {
-
-  console.log(process.versions.node)
-
-  expect(global.setTimeout).not.toBeUndefined();
-  expect(global.structuredClone).not.toBeUndefined();
-
   const store = TestBed.inject(TestService);
 
   store.add.emit({id: 'first', value: 'Test'});
@@ -109,4 +112,26 @@ test('Load', async () => {
   await store.load.emit();
 
   expect(store.state().values.length).toEqual(2);
+})
+
+test('Empty Cache Load Fallback', async () => {
+
+  const store = TestBed.inject(TestService);
+  expect(store.state().values.length).toEqual(0);
+
+  const request = store.loadWithFallback.emit();
+  expect(request.loading()).toBe(true);
+  expect(store.loadWithFallback.loading()).toBe(true);
+  expect(store.loadWithFallback.fallback?.loading()).toBe(false);
+  expect(store.loadWithFallback.anyLoading()).toBe(true);
+
+  await request;
+
+  expect(request.loading()).toBe(false);
+  expect(store.loadWithFallback.loading()).toBe(false);
+  expect(store.loadWithFallback.fallback?.loading()).toBe(false);
+  expect(store.loadWithFallback.anyLoading()).toBe(false);
+
+  expect(store.state().values.length).toEqual(1);
+  expect(store.state().values[0]?.id).toBe('loaded');
 })
